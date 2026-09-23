@@ -114,6 +114,13 @@ in a sandbox copy, each turning the sample written for it red, none by a crash. 
 something were read from the source, not listed by hand: 2 only pass on what other lines found, and every other one is in the matrix.
 make_model.py, preview.py, ooxml.py and xlformula.py have self-tests but no break matrix.
 
+One workbook was also opened in Microsoft Excel, by a person, once: on 2026-09-23, Microsoft Excel for Mac 16.90.2
+(build 16.90.24102719) opened the demo's workbook, the coffee cart in the GIF above (SHA-256
+0998f7164d3cce07c59f2a48321910922a69a296d5a1ddb07940cb477c110515), without a repair prompt, and with the file set to
+recalculate on opening, the Checks sheet read "Balanced: every check is zero to the penny" and the cash line read
+"No". That was confirmed by looking at the screen of one Mac; no screenshot was kept. The automated checks above have
+never run in Excel.
+
 ## Limits
 
 - **Yearly, one to ten years, one product line.** Units, a price, a cost per unit and fixed costs, each growing at one rate. No months, no seasons, no product mix.
