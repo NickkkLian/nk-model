@@ -7,15 +7,34 @@ the numbers the chart carries.
     python3 preview.py --selftest
 
 It shows what the file holds and recalculates nothing: a stored value that disagrees with its formula shows here as
-stored — model_check.py is what finds that. Nothing is fetched: fonts fall back to the system's.
+stored — model_check.py is what finds that. Nothing is fetched: the three faces the workbook names (Fraunces, Inter,
+Space Mono; Latin subsets, SIL OFL 1.1, from ../assets/fonts) are inlined, which adds 135,972 bytes to the page.
 """
-import html, os, re, sys
+import base64, html, os, re, sys
 from decimal import Decimal, ROUND_HALF_UP
 from xml.etree import ElementTree as ET
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ooxml as O
+
+FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "fonts")
+FONTS = [("Fraunces", "fraunces-latin-wght.woff2", "100 900"), ("Inter", "inter-latin-wght.woff2", "100 900"),
+         ("Space Mono", "space-mono-latin-400.woff2", "400")]
+FONT_NOTICE = ("/* Fraunces (c) 2020 The Fraunces Project Authors; Inter (c) 2016 The Inter Project Authors; Space Mono (c) 2016\n"
+               "   The Space Mono Project Authors. Latin subsets under the SIL Open Font License 1.1 (openfontlicense.org);\n"
+               "   the licence texts ship with the skill in assets/fonts/. Inlined so the file fetches nothing. */")
+
+
+def font_faces(font_dir=FONT_DIR):
+    """@font-face rules for the three faces the workbook names, each file inlined whole as a data: URI."""
+    rules = [FONT_NOTICE]
+    for family, name, weight in FONTS:
+        data = base64.b64encode(open(os.path.join(font_dir, name), "rb").read()).decode("ascii")
+        rules.append(f'@font-face{{font-family:"{family}";src:url(data:font/woff2;base64,{data}) format("woff2");'
+                     f"font-weight:{weight};font-style:normal;font-display:block}}")
+    return "\n".join(rules)
+
 
 BUILTIN = {0: "General", 1: "0", 2: "0.00", 3: "#,##0", 4: "#,##0.00", 9: "0%", 10: "0.00%"}
 
@@ -187,12 +206,13 @@ def render(path):
   td { padding: 3px 10px; white-space: nowrap; vertical-align: bottom; }
   td.num { text-align: right; font-family: "Space Mono", ui-monospace, Menlo, monospace; font-size: 13px; }
   svg { max-width: 100%; height: auto; display: block; margin: 8px 0 24px; }
-  svg text { font: 12px ui-monospace, Menlo, monospace; fill: #4f4a57; }
+  svg text { font: 12px "Space Mono", ui-monospace, Menlo, monospace; fill: #4f4a57; }
   svg .grid { stroke: var(--line); } svg .axis { stroke: #8a8290; }
   .stamp { color: var(--muted); font-size: 12px; padding: 0 16px 24px; }
 """
     out = ["<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
-           f"<title>{html.escape(names[0] if names else 'workbook')}: preview</title><style>{css}</style></head><body>",
+           f"<title>{html.escape(names[0] if names else 'workbook')}: preview</title>",
+           f'<style id="brand-fonts">\n{font_faces()}\n</style><style>{css}</style></head><body>',
            "<nav>" + "".join(f'<a href="#s{k + 1}">{html.escape(n)}</a>' for k, n in enumerate(names)) + "</nav>"]
     for k, name in enumerate(names):
         out.append(f'<section id="s{k + 1}" aria-label="{html.escape(name)}">')
@@ -230,7 +250,9 @@ def render(path):
                     if f["size"] and f["size"] != 10:
                         css_cell.append(f"font-size:{f['size'] * 1.4:.0f}px")
                     if "Fraunces" in f["name"]:
-                        css_cell.append('font-family:Fraunces,Georgia,"Times New Roman",serif')
+                        # single quotes: this lands inside style="…", where a double quote ends the attribute and the
+                        # browser drops the whole declaration (every title fell back to the body font until 0.1.1)
+                        css_cell.append("font-family:Fraunces,Georgia,'Times New Roman',serif")
                     if st["fill"]:
                         css_cell.append(f"background:{st['fill']}")
                     top, bottom = st["border"]
@@ -278,6 +300,15 @@ def selftest():
         say(f"{net:,.0f}" in page, f"a stored value appears as the sheet formats it (net profit {net:,.0f})")
         say(page.count("<svg ") == 2 and "<rect" in page and "<polyline" in page, "both charts are drawn, bars and a line")
         say("http://" not in page.replace("http://www.w3.org", "") and "https://" not in page, "the page fetches nothing")
+        faces = re.findall(r'@font-face\{font-family:"([^"]+)";src:url\(data:font/woff2;base64,([A-Za-z0-9+/=]+)\)', page)
+        # written out here, not read from FONTS: a check that reads the list it checks agrees with any face left out
+        say(sorted(f for f, _ in faces) == ["Fraunces", "Inter", "Space Mono"], "the three faces the workbook names travel inside the page")
+        say(len(faces) == len(FONTS) and all(base64.b64decode(d) == open(os.path.join(FONT_DIR, n), "rb").read()
+                                             for (_, d), (_, n, _) in zip(faces, FONTS)), "each inlined face is its whole font file")
+        say("SIL Open Font License" in page, "the fonts' licence notice travels with them")
+        styles_ = re.findall(r'<td[^>]*style="([^"]*)"[^>]*>Assumptions: ', page)
+        say(len(styles_) == 1 and styles_[0].endswith("font-family:Fraunces,Georgia,'Times New Roman',serif"),
+            f"the title cell's font survives inside its style attribute ({styles_[0][-40:] if styles_ else 'no title cell'})")
         drawn = charts_of(parts)[5][0]["series"][0]["vals"]
         stored = [cells["Income statement"][f"{c}6"]["value"] for c in "BCD"]
         say(drawn == stored, f"the revenue bars are drawn from the chart's own copy, which holds the stored revenue ({len(drawn)} years)")

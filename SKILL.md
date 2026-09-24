@@ -5,7 +5,7 @@ license: MIT
 compatibility: standard library only, no packages and no build step. The workbook stores every formula with its value, so a viewer that does not recalculate shows the same numbers; nothing in it runs or links out.
 metadata:
   provenance: own practice (2026-09) — the reconciliation discipline of a bank-statement categoriser of mine (exact to the penny, rebuild and compare, a deliberate break must turn red), carried over to a financial model; see Provenance
-  version: 0.1.0
+  version: 0.1.1
 ---
 # Three-statement model
 
