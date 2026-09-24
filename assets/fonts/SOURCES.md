@@ -1,7 +1,7 @@
 # Fonts shipped with this skill
 
 preview.py inlines them into every preview page it writes, as `data:` URIs inside one `<style id="brand-fonts">` block, so the file draws its own type and still
-fetches nothing when it opens. They are the same three files the author's own website serves.
+fetches nothing when it opens.
 
 | file | face | licence |
 |---|---|---|

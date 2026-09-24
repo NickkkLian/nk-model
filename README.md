@@ -4,8 +4,8 @@
 
 An agent skill for [Claude Code](https://code.claude.com) and [OpenAI Codex](https://developers.openai.com/codex). Turn a description of a small business and a few assumptions — price, units sold, costs, the days customers take to pay, equipment, a loan, tax — into a three-statement financial model in one .xlsx: an income statement, a balance sheet and a cash flow that tie to each other, a checks sheet, charts, and a sheet stating every assumption and the method.
 
-Part of [nickkk-skills](https://github.com/NickkkLian/nickkk-skills) — agent skills whose scripts were broken on purpose
-before release to prove their checks react.
+Part of [nickkk-skills](https://github.com/NickkkLian/nickkk-skills) — agent skills that ship a self-test with every script; the Verify
+section below says which of them were broken on purpose before release to prove they react.
 
 ![nk-model demo: a few assumptions in, one workbook out](https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/nk-model.gif)
 
@@ -29,6 +29,14 @@ The full procedure, the boundaries and where the rules came from are in [SKILL.m
 5. Read the cash line
 6. Look at it without a spreadsheet
 7. Hand it over
+
+## Why it is built this way
+
+**The idea.** A business plan is three statements that have to agree. A model that does not balance has a mistake in it somewhere, and a model that balances only because someone typed a number into the balance sheet (a plug) is worse, because it looks right.
+
+**Where it came from.** The discipline comes from a bank-statement categoriser of mine: totals that must reconcile to the penny, output that is rebuilt and compared rather than trusted, and a deliberate break that has to turn a check red before the check counts.
+
+**Evidence.** What was broken on purpose to show that the self-tests can fail is under [Verify](#verify); what was run end to end, and in which agent, is under [Compatibility](#compatibility).
 
 ## Install
 
@@ -95,8 +103,8 @@ git clone https://github.com/NickkkLian/nk-model.git ~/.agents/skills/nk-model
 
 | Agent | Tested | What was checked |
 |---|---|---|
-| Claude Code (CLI 2.1.173, macOS) | yes | In a fresh project with an isolated Claude config, inside a macOS sandbox that blocked reading the tester's ~/.claude folder (settings, session history, memory), Desktop, Documents and Downloads, SSH keys and git identity, a plain request that never names the skill triggered it and it ran its bundled script. The route 2 plugin commands were also run from a shell with an isolated config: marketplace add, install, list. The brief was a paragraph about a sister opening a dog-grooming salon, with the numbers she knew (18 dogs a week at £45, about £2,800 a month in rent and help, £12,000 borrowed over three years at about 9%), asking for a three-year model to open in Excel; it never named the skill. In eleven turns the run took the example with --init, read the format reference, wrote the business (900 grooms in the first year growing 15% a year, £4 of consumables a groom, £8,000 of equipment, and £5,000 of her own money that the brief never mentioned; its reply listed each as an assumption to check), built the workbook, checked it (balanced to the penny, 0 findings) and wrote a preview for looking at it without Excel. Its business, built again with the version released after the outside audit, balances, and the checker gives 0 findings. |
-| OpenAI Codex CLI (0.155.0-alpha.9.2, gpt-5.6-sol, low reasoning, macOS) | yes | Copied into `~/.agents/skills` of a temporary home, in a fresh project, without the user's Codex config, with the same brief. Codex read SKILL.md and the format reference, started from the --init example, built the workbook, checked it and wrote the preview. Its version assumed none of her own money, so cash dips to -£289 in the first year, and Codex's reply said the plan needs at least another £300. The run's own record does not show the checker's output (the command's output came back empty). Its business, built again with the version released after the outside audit, balances; the checker gives 0 findings and warns that cash is below zero (-289.40). |
+| Claude Code (CLI 2.1.173, macOS) | yes | In a fresh project with an isolated Claude config, inside a macOS sandbox that blocked reading the tester's ~/.claude folder (settings, session history, memory), Desktop, Documents and Downloads, SSH keys and git identity, a plain request that never names the skill triggered it and it ran its bundled script. The route 2 plugin commands were also run from a shell with an isolated config: marketplace add, install, list. The brief, invented for the test, was a paragraph about a sister opening a dog-grooming salon, with the numbers she knew (18 dogs a week at £45, about £2,800 a month in rent and help, £12,000 borrowed over three years at about 9%), asking for a three-year model to open in Excel; it never named the skill. In eleven turns the run took the example with --init, read the format reference, wrote the business (900 grooms in the first year growing 15% a year, £4 of consumables a groom, £8,000 of equipment, and £5,000 of her own money that the brief never mentioned; its reply listed each as an assumption to check), built the workbook, checked it (balanced to the penny, 0 findings) and wrote a preview for looking at it without Excel. Its business, built again with the first released version (0.1.0), balances, and the checker gives 0 findings. |
+| OpenAI Codex CLI (0.155.0-alpha.9.2, gpt-5.6-sol, low reasoning, macOS) | yes | Copied into `~/.agents/skills` of a temporary home, in a fresh project, without the user's Codex config, with the same brief. Codex read SKILL.md and the format reference, started from the --init example, built the workbook, checked it and wrote the preview. Its version assumed none of her own money, so cash dips to -£289 in the first year, and Codex's reply said the plan needs at least another £300. The run's own record does not show the checker's output (the command's output came back empty). Its business, built again with the first released version (0.1.0), balances; the checker gives 0 findings and warns that cash is below zero (-289.40). |
 | Cursor, Gemini CLI | no | Not tested. Their documentation says both read `~/.agents/skills`, the folder route 4 clones into; Gemini CLI asks before it activates a skill. |
 
 Route 4 was checked for this repository: cloned from GitHub into a temporary home's `~/.agents/skills`, it was listed by the step 3 command. This skill's frontmatter uses only name, description, license, compatibility and metadata.

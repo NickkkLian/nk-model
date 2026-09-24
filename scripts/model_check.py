@@ -446,7 +446,7 @@ def selftest():
     even = json.loads(json.dumps(E)); even["funding"].update(equity=17129.37, loan=10590.9); even["equipment"]["initial"] = 27720.27
     case("a business whose start cash is exactly nothing: no finding and no warning", set(), built(biz=even),
          extra=lambda found, warn: not warn)
-    # what the 2026-09-23 audit found passing: each edit below was made to a copy of the example and got 0 findings
+    # what an earlier version let through: each edit below was made to a copy of the example and got 0 findings
     def hide_checks(p):
         _zip_edit(p, "xl/workbook.xml", lambda blob: blob.replace(b'<sheet name="Checks"', b'<sheet name="Checks" state="hidden"', 1))
     case("K01 the Checks sheet hidden", {"K01"}, built(zipped=hide_checks))
