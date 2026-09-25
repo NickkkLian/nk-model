@@ -125,11 +125,13 @@ something were read from the source, not listed by hand: 2 only pass on what oth
 make_model.py, preview.py, ooxml.py and xlformula.py have self-tests but no break matrix.
 
 One workbook was also opened in Microsoft Excel, by a person, once: on 2026-09-23, Microsoft Excel for Mac 16.90.2
-(build 16.90.24102719) opened the demo's workbook, the coffee cart in the GIF above (SHA-256
-0998f7164d3cce07c59f2a48321910922a69a296d5a1ddb07940cb477c110515), without a repair prompt, and with the file set to
-recalculate on opening, the Checks sheet read "Balanced: every check is zero to the penny" and the cash line read
-"No". That was confirmed by looking at the screen of one Mac; no screenshot was kept. The automated checks above have
-never run in Excel.
+(build 16.90.24102719) opened the demo's workbook, the coffee cart in the GIF above as an earlier version built it
+(SHA-256 0998f7164d3cce07c59f2a48321910922a69a296d5a1ddb07940cb477c110515), without a repair prompt, and with the file
+set to recalculate on opening, the Checks sheet read "Balanced: every check is zero to the penny" and the cash line
+read "No". That was confirmed by looking at the screen of one Mac; no screenshot was kept. The coffee cart this
+version builds (the one in the GIF) differs from that file in one cell only, the cash line's formula (Checks!B11: "below
+zero" became "below zero by more than half a penny"); both store "No". This version's file has not been opened in
+Excel, and the automated checks above have never run in Excel.
 
 ## Limits
 
@@ -141,7 +143,7 @@ never run in Excel.
 - **Where its arithmetic is not Excel's.** The formula evaluator follows Excel's order of operations and refuses what it could not test (`&`, `ROUND`, `TRUE` or text typed into `SUM`, `MIN` or `MAX`, a range inside `AND` or `OR`). It does not refuse four cases where its answer differs from what Microsoft documents for Excel, or may: a sum that comes out a hair from zero (`1.333 + 1.225 - 1.333 - 1.225` is -2.2e-16 here; Excel 97 and later show 0); text in arithmetic (`"1"+"2"` is an error here, 3 in Excel); text reached through a reference inside `AND` or `OR` (an error here; Excel ignores it); and a TRUE worked out inside `SUM`, `MIN` or `MAX` (`SUM(1=1)` is 0 here; Microsoft's pages do not say). None was tried in Excel. Only the first can come from this skill's own formulas.
 - **Text XML cannot hold.** The builder refuses control characters and emoji, but not U+FFFE or U+FFFF: a name or description holding one is written into a workbook that is not valid XML, which `model_check.py` and openpyxl cannot read. Nor are ⤴ and ⤵ refused, though Unicode lists them as emoji.
 - **Very large sums.** Every input can be within its range and the sums still reach the trillions (large amounts growing by hundreds of percent a year), where floating point is not exact to the penny. The builder writes such a workbook, and the checker, which adds and compounds its own way, can then report a difference at the last penny (K05 or K06).
-- **Rounded for display.** The statements show money in whole units, and prices, unit costs and the check lines to the penny; every total is worked out before rounding, so a total can be a few units off the sum of the lines it shows (at most half a unit for each number in the sum, the total included), and units, which grow by a percentage, are not whole numbers. Each statement's note says it is rounded, and the Assumptions sheet's method says the rest.
+- **Rounded for display.** The statements show money in whole units, and prices, unit costs and the check lines to the penny; every total is worked out before rounding, so a total can be a few units off the sum of the lines it shows (at most half a unit for each number in the sum, the total included), and units, which grow by a percentage, are not whole numbers. Each statement's note says it is rounded, and the Assumptions sheet's method says the rest. A year-end cash of exactly nothing can be stored as -0.0000000000036, which Excel may show as "(0)", since its format picks the negative section by the sign of the stored value (not tried in Excel).
 - **The checker knows this skill's layout.** It checks workbooks this skill wrote; a model from anywhere else is reported as not from this skill (K01), not checked.
 
 ## License

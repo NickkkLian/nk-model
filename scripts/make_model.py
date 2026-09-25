@@ -571,7 +571,9 @@ def make(src, out):
     start_cash = values[("Balance sheet", O.ref(BS["cash"], bcol(0)))]
     net = [values[("Income statement", O.ref(IS["net"], ycol(i)))] for i in range(1, n + 1)]
     print(f"wrote {out}: {b['name']}, {b['first_year']}-{b['first_year'] + n - 1} · {size:,} bytes · balanced to the penny in all {n + 1} balance sheets")
-    print(f"net profit {', '.join(f'{v:,.0f}' for v in net)} · cash at the end of each year {', '.join(f'{v:,.0f}' for v in cash)} ({b['currency']})")
+    # display only: a cash of exactly nothing can be stored as -3.6e-12, which would print as "-0"
+    whole = lambda v: "0" if f"{v:,.0f}" == "-0" else f"{v:,.0f}"
+    print(f"net profit {', '.join(whole(v) for v in net)} · cash at the end of each year {', '.join(whole(v) for v in cash)} ({b['currency']})")
     # below zero by more than half a penny, as the Checks sheet judges it
     low = [("Start", start_cash)] * (start_cash < -0.005) + [(str(b["first_year"] + i), v) for i, v in enumerate(cash) if v < -0.005]
     if low:
@@ -662,9 +664,11 @@ def selftest():
             r = subprocess.run([sys.executable, __file__, src, "-o", out], capture_output=True, text=True)
             cells, _ = O.read(out)
             said = cells["Checks"]["B11"]["value"]
-            say(r.returncode == 0 and ("below zero in" in r.stdout) == short and said.startswith("Yes") == short,
+            printed = next((x for x in r.stdout.splitlines() if "cash at the end of each year" in x), "")
+            say(r.returncode == 0 and ("below zero in" in r.stdout) == short and said.startswith("Yes") == short
+                and ("-0 (" not in printed) and (short or "year 0 (" in printed),
                 f"owners' money of {equity:,.2f}, so the year ends with {'a penny short' if short else 'exactly nothing'}: "
-                + ("both the note and the Checks sheet say it needs money" if short else "neither the note nor the Checks sheet says it needs money")
+                + ("both the note and the Checks sheet say it needs money" if short else "neither the note nor the Checks sheet says it needs money, and the cash prints as 0, not -0")
                 + f" (Checks!B11 {said!r})")
         # control characters (the workbook's XML cannot hold them) and what model_check.py's K11 would refuse are refused here first
         for label, change, words in (("a star in the name", lambda b: b.update(name=b["name"] + " \u2605"), "icon"),

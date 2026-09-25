@@ -123,6 +123,8 @@ does not balance.
   the penny; every total is worked out before rounding, so a total can be a few units off the sum of the lines it
   shows (at most half a unit for each number in the sum, the total included), and units, which grow by a percentage,
   are not whole numbers. Each statement's note says it is rounded, and the Assumptions sheet's method says the rest.
+  A year-end cash of exactly nothing can be stored as -0.0000000000036, which Excel may show as "(0)", since its
+  format picks the negative section by the sign of the stored value (not tried in Excel).
 - **The checker knows this skill's layout.** It checks workbooks this skill wrote; a model from anywhere else is
   reported as not from this skill (K01), not checked.
 
