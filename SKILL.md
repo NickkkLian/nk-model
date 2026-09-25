@@ -5,7 +5,7 @@ license: MIT
 compatibility: standard library only, no packages and no build step. The workbook stores every formula with its value, so a viewer that does not recalculate shows the same numbers; nothing in it runs or links out.
 metadata:
   provenance: own practice (2026-09) — the reconciliation discipline of a bank-statement categoriser of mine (exact to the penny, rebuild and compare, a deliberate break must turn red), carried over to a financial model; see Provenance
-  version: 0.1.2
+  version: 0.1.3
 ---
 # Three-statement model
 
@@ -51,9 +51,9 @@ does not balance.
    Boundaries. Run it again after anyone edits the workbook. It reads the file with
    `${CLAUDE_SKILL_DIR}/scripts/ooxml.py` and evaluates each formula with `${CLAUDE_SKILL_DIR}/scripts/xlformula.py`,
    which follows Excel's own order of operations (`python3 ${CLAUDE_SKILL_DIR}/scripts/xlformula.py "2^3^2"` gives 64).
-5. **Read the cash line.** If cash goes below zero at the start or at a year end, both scripts say so: the plan needs
-   money the model does not include. That is usually the most useful thing the model says; tell the person in plain
-   words.
+5. **Read the cash line.** If cash goes below zero (by more than half a penny) at the start or at a year end, both
+   scripts say so: the plan needs money the model does not include. That is usually the most useful thing the model
+   says; tell the person in plain words.
 6. **Look at it without a spreadsheet** if you cannot open one:
    `python3 ${CLAUDE_SKILL_DIR}/scripts/preview.py model.xlsx -o preview.html` shows every sheet as stored, and the
    charts from the numbers they carry.
@@ -112,12 +112,6 @@ does not balance.
   arithmetic (`"1"+"2"` is an error here, 3 in Excel); text reached through a reference inside `AND` or `OR` (an error
   here; Excel ignores it); and a TRUE worked out inside `SUM`, `MIN` or `MAX` (`SUM(1=1)` is 0 here; Microsoft's pages
   do not say). None was tried in Excel. Only the first can come from this skill's own formulas.
-- **Cash of exactly nothing at a year end.** The start cash and the check lines are written as 0 when they are within
-  half a penny, so owners' money and a loan that exactly pay for the equipment are not called a shortfall. A year-end
-  cash that works out to exactly nothing can still be stored a hair below zero (-0.0000000000036), and then the
-  Checks sheet and both scripts say the model needs money it does not include. It takes a year whose cash flow comes
-  to whole pennies and owners' money set to cancel it exactly; of 7,144 one-year businesses built that way, 63 were
-  called short.
 - **Text XML cannot hold.** The builder refuses control characters and emoji, but not U+FFFE or U+FFFF: a name or
   description holding one is written into a workbook that is not valid XML, which `model_check.py` and openpyxl
   cannot read. Nor are ⤴ and ⤵ refused, though Unicode lists them as emoji.

@@ -42,8 +42,8 @@ cell carries formula text, this reader and openpyxl can expand a cell differentl
 Not looked at, so an edit there passes: conditional formats, drawings and text boxes, hidden rows and columns, merged
 cells, fonts and colours, phonetic guides inside a text (read here as part of it), data connections, the
 precision-as-displayed setting, and the note under each sheet's title, which is free text like the business's name.
-A warning, not a finding: cash below zero at the start or at a year end (the model would need money it does not
-include).
+A warning, not a finding: cash below zero, by more than half a penny, at the start or at a year end (the model
+would need money it does not include).
 Exit 0 no findings · 1 findings · 2 usage or selftest failed.
 """
 import os, re, sys, zipfile
@@ -265,7 +265,7 @@ def check_book(cells, parts):
     if not isinstance(said, str) or said.startswith("Balanced") != (not nonzero):
         add("K07", f"the Checks sheet says {said!r}, but " + ("every line on it is zero" if not nonzero else f"{len(nonzero)} of its lines are not: {nonzero[0]}"))
     cash = [v("Balance sheet", "cash", i) for i in range(0, n + 1)]
-    low = [("Start" if i == 0 else years[i - 1], x) for i, x in enumerate(cash) if x < 0]
+    low = [("Start" if i == 0 else years[i - 1], x) for i, x in enumerate(cash) if x < -PENNY]   # as the Checks sheet: by more than half a penny
     neg = val("Checks", M.CK["negative"], 2)
     if not isinstance(neg, str) or neg.startswith("Yes") != bool(low):
         add("K07", f"the Checks sheet says cash below zero: {neg!r}, but the balance sheet's cash is " + (f"below zero in {low[0][0]}" if low else "never below zero"))
@@ -446,6 +446,17 @@ def selftest():
     even = json.loads(json.dumps(E)); even["funding"].update(equity=17129.37, loan=10590.9); even["equipment"]["initial"] = 27720.27
     case("a business whose start cash is exactly nothing: no finding and no warning", set(), built(biz=even),
          extra=lambda found, warn: not warn)
+    # a year-end cash of exactly nothing, stored as -3.6e-12, is not a shortfall; a penny below it is
+    yearend = json.loads(json.dumps(E)); yearend["years"] = 1; yearend["tax_rate"] = 0.2
+    yearend["sales"].update(units=267, price=145); yearend["costs"].update(unit_cost=4, fixed_costs=15001)
+    yearend["equipment"].update(initial=45000, yearly=500, depreciation_rate=0.2)
+    yearend["working_capital"].update(receivable_days=0, inventory_days=0, payable_days=0)
+    yearend["funding"].update(equity=27567.2, loan=31000, interest_rate=0.08, loan_years=1)
+    case("a business whose year-end cash is exactly nothing: no finding and no warning", set(), built(biz=yearend),
+         extra=lambda found, warn: not warn)
+    short = json.loads(json.dumps(yearend)); short["funding"]["equity"] = 27567.19
+    case("the same business a penny short at the year end: no finding, one warning", set(), built(biz=short),
+         extra=lambda found, warn: len(warn) == 1 and "below zero" in warn[0])
     # what an earlier version let through: each edit below was made to a copy of the example and got 0 findings
     def hide_checks(p):
         _zip_edit(p, "xl/workbook.xml", lambda blob: blob.replace(b'<sheet name="Checks"', b'<sheet name="Checks" state="hidden"', 1))

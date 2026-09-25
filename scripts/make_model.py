@@ -315,7 +315,9 @@ def formulas(years):
     f[("Checks", CK["result"], 2)] = (f'IF(AND(MAX({span})<0.005,MIN({span})>-0.005),'
                                       f'"Balanced: every check is zero to the penny","NOT balanced: see the rows above")')
     cash = f"{BSn}!{first}{BS['cash']}:{last}{BS['cash']}"
-    f[("Checks", CK["negative"], 2)] = f'IF(MIN({cash})<0,"Yes: the model needs money it does not include","No")'
+    # short only by more than half a penny: a year-end cash of exactly nothing can be stored as -3.6e-12, and it is not
+    # rounded (a year-end cash can be fractions of a penny, and they carry into the next year)
+    f[("Checks", CK["negative"], 2)] = f'IF(MIN({cash})<-0.005,"Yes: the model needs money it does not include","No")'
     return f
 
 
@@ -570,7 +572,8 @@ def make(src, out):
     net = [values[("Income statement", O.ref(IS["net"], ycol(i)))] for i in range(1, n + 1)]
     print(f"wrote {out}: {b['name']}, {b['first_year']}-{b['first_year'] + n - 1} · {size:,} bytes · balanced to the penny in all {n + 1} balance sheets")
     print(f"net profit {', '.join(f'{v:,.0f}' for v in net)} · cash at the end of each year {', '.join(f'{v:,.0f}' for v in cash)} ({b['currency']})")
-    low = [("Start", start_cash)] * (start_cash < 0) + [(str(b["first_year"] + i), v) for i, v in enumerate(cash) if v < 0]
+    # below zero by more than half a penny, as the Checks sheet judges it
+    low = [("Start", start_cash)] * (start_cash < -0.005) + [(str(b["first_year"] + i), v) for i, v in enumerate(cash) if v < -0.005]
     if low:
         print(f"note: cash is below zero in {', '.join(y for y, _ in low)}: the model needs money it does not include")
     print(f"next: python3 {os.path.join(HERE, 'model_check.py')} {out}")
@@ -646,6 +649,23 @@ def selftest():
         say(r.returncode == 0 and "below zero" not in r.stdout and cells["Balance sheet"]["B4"]["value"] == 0
             and cells["Checks"]["B11"]["value"] == "No",
             "equity and loan that exactly cover the equipment: the start cash is 0, and nothing says the model needs more money")
+        # a year whose cash comes to exactly nothing is stored a hair below zero (-3.6e-12) and kept as it is (a year-end
+        # cash can be fractions of a penny, and they carry into the next year); the shortfall is judged at half a penny
+        yearend = json.loads(json.dumps(EXAMPLE)); yearend["years"] = 1; yearend["tax_rate"] = 0.2
+        yearend["sales"].update(units=267, price=145); yearend["costs"].update(unit_cost=4, fixed_costs=15001)
+        yearend["equipment"].update(initial=45000, yearly=500, depreciation_rate=0.2)
+        yearend["working_capital"].update(receivable_days=0, inventory_days=0, payable_days=0)
+        yearend["funding"].update(equity=27567.2, loan=31000, interest_rate=0.08, loan_years=1)
+        for equity, short in ((27567.2, False), (27567.19, True)):
+            yearend["funding"]["equity"] = equity
+            io.open(src, "w", encoding="utf-8").write(json.dumps(yearend))
+            r = subprocess.run([sys.executable, __file__, src, "-o", out], capture_output=True, text=True)
+            cells, _ = O.read(out)
+            said = cells["Checks"]["B11"]["value"]
+            say(r.returncode == 0 and ("below zero in" in r.stdout) == short and said.startswith("Yes") == short,
+                f"owners' money of {equity:,.2f}, so the year ends with {'a penny short' if short else 'exactly nothing'}: "
+                + ("both the note and the Checks sheet say it needs money" if short else "neither the note nor the Checks sheet says it needs money")
+                + f" (Checks!B11 {said!r})")
         # control characters (the workbook's XML cannot hold them) and what model_check.py's K11 would refuse are refused here first
         for label, change, words in (("a star in the name", lambda b: b.update(name=b["name"] + " \u2605"), "icon"),
                                      ("a bell character in the name", lambda b: b.update(name="Harbour\u0007Bikes"), "control character"),
