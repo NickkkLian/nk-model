@@ -5,7 +5,7 @@ license: MIT
 compatibility: standard library only, no packages and no build step. The workbook stores every formula with its value, so a viewer that does not recalculate shows the same numbers; nothing in it runs or links out.
 metadata:
   provenance: own practice (2026-09) — the reconciliation discipline of a bank-statement categoriser of mine (exact to the penny, rebuild and compare, a deliberate break must turn red), carried over to a financial model; see Provenance
-  version: 0.1.3
+  version: 0.1.4
 ---
 # Three-statement model
 
@@ -59,6 +59,19 @@ does not balance.
    charts from the numbers they carry.
 7. **Hand it over** with the three facts that matter: whether it balances (it always will, or it would not exist),
    when the cash is lowest, and what the model leaves out (it says on the Assumptions sheet).
+
+## Clickable number sources
+
+In the preview (step 6), click any number and a panel shows its cell, its formula (or that the number was typed in,
+with no formula) and what was not checked: the preview shows the stored value and does not recalculate it, and nothing
+was compared with Microsoft Excel. Every number in a sheet must carry its source: one that loses it is refused
+(preview.py's self-test).
+
+The panel is the shared number-sources layer that nk-design, nk-data-story, nk-deck, nk-model and nk-explorer all
+use, the same three files in each (`scripts/numsrc.py`, `assets/numsrc.js`, `assets/numsrc.css`): Tab to a number, Enter
+or Space opens it, Esc closes it and puts the focus back; printed, the numbers are plain text. `python3
+${CLAUDE_SKILL_DIR}/scripts/numsrc.py check page.html` checks a page: every marked number has an entry, every entry says
+where from, how and what was not checked, and the runtime is the shipped one, byte for byte.
 
 ## Rules that keep it honest
 

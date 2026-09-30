@@ -17,6 +17,7 @@ section below says which of them were broken on purpose before release to prove 
 - `scripts/preview.py`: the workbook as one HTML page — every sheet as stored, and the charts drawn from the numbers they carry — for looking at it without a spreadsheet program. The page carries the three faces the workbook names: the Latin subsets of Fraunces, Inter and Space Mono (SIL OFL 1.1, licences in `assets/fonts/`) are inlined, which adds 135,972 bytes to it. It still fetches nothing.
 - `scripts/ooxml.py` and `scripts/xlformula.py`: the standard-library .xlsx writer and reader, and the checker's evaluator for the part of Excel's formula language the model uses (Excel's own order: `2^3^2` is 64, `-2^2` is 4; some things it could not test against Excel, such as `&` or `TRUE` typed into `MAX`, it refuses; where it is known to differ from Excel is under Limits).
 - Standard library only, Python 3.9+. No Chrome, no spreadsheet program needed.
+- In the HTML preview, click any number to see its cell, its formula and what the preview did not check (the shared number-sources layer, `numsrc.py`).
 
 The full procedure, the boundaries and where the rules came from are in [SKILL.md](SKILL.md).
 
@@ -114,6 +115,7 @@ Route 4 was checked for this repository: cloned from GitHub into a temporary hom
 ```bash
 python3 scripts/make_model.py --selftest
 python3 scripts/model_check.py --selftest
+python3 scripts/numsrc.py --selftest
 python3 scripts/ooxml.py --selftest
 python3 scripts/preview.py --selftest
 python3 scripts/xlformula.py --selftest
@@ -132,6 +134,9 @@ read "No". That was confirmed by looking at the screen of one Mac; no screenshot
 version builds (the one in the GIF) differs from that file in one cell only, the cash line's formula (Checks!B11: "below
 zero" became "below zero by more than half a penny"); both store "No". This version's file has not been opened in
 Excel, and the automated checks above have never run in Excel.
+numsrc.py, the number-sources layer shared with four other skills: each of its 16 lines that report a
+finding was disabled in a sandbox copy, found by reading the source rather than listed by hand, and its self-test went
+red each time; the unmutated copy stayed green.
 
 ## Limits
 

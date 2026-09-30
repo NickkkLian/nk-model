@@ -10,14 +10,16 @@ It shows what the file holds and recalculates nothing: a stored value that disag
 stored — model_check.py is what finds that. Nothing is fetched: the three faces the workbook names (Fraunces, Inter,
 Space Mono; Latin subsets, SIL OFL 1.1, from ../assets/fonts) are inlined, which adds 135,972 bytes to the page.
 """
-import base64, html, os, re, sys
+import base64, hashlib, html, json, os, re, sys
 from decimal import Decimal, ROUND_HALF_UP
 from xml.etree import ElementTree as ET
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ooxml as O
+import numsrc  # the clickable number sources layer shared with the other nk-* page skills
 
+VERSION = "0.1.4"   # written into the sources manifest as the generator
 FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "fonts")
 FONTS = [("Fraunces", "fraunces-latin-wght.woff2", "100 900"), ("Inter", "inter-latin-wght.woff2", "100 900"),
          ("Space Mono", "space-mono-latin-400.woff2", "400")]
@@ -184,8 +186,28 @@ def svg_chart(ch, w=640, h=300):
     return "".join(out) + "</svg>"
 
 
+NOT_CHECKED_PAGE = ["Whether the assumptions are right: the model shows how they fit together, not what will happen. It is not advice.",
+                    "This page was not compared with Microsoft Excel; the workbook's own checks are in model_check.py."]
+
+
+def trace(src, sid, sheet, ref, cell, text, pos, r):
+    """one manifest entry: the cell, its formula or that it was typed, and what this preview did not check"""
+    row_label = next((str(pos[(r, c)]["value"]) for c in range(1, 3) if isinstance((pos.get((r, c)) or {}).get("value"), str)), "")
+    label = (row_label + " · " if row_label else "") + f"{sheet}!{ref}"
+    if cell.get("formula"):
+        kind, how = "formula", "=" + cell["formula"]
+        unchecked = ["The value is the one stored in the file; this preview did not recalculate the formula (model_check.py does, K03)."]
+    else:
+        kind, how = "input", "a number typed into the cell, with no formula"
+        unchecked = ["An input: where the number comes from is the business description's to say (its sources line, or illustrative)."]
+    src.add(sid, label, [{"input": "workbook", "cells": f"{sheet}!{ref}"}], kind, how, unchecked, value=text)
+
+
 def render(path):
     cells, parts = O.read(path)
+    raw = open(path, "rb").read()
+    src = numsrc.Sources(f"nk-model {VERSION} preview.py", not_checked=NOT_CHECKED_PAGE,
+                         inputs=[{"id": "workbook", "name": os.path.basename(path), "sha256": hashlib.sha256(raw).hexdigest()}])
     xfs = styles(parts)
     charts = charts_of(parts)
     names = list(cells)
@@ -194,7 +216,12 @@ def render(path):
         root = ET.fromstring(parts[f"xl/worksheets/sheet{k}.xml"])
         widths[k - 1] = {int(c.get("min")): float(c.get("width")) for c in root.iter("{%s}col" % O.NS)}
     css = """
-  :root { --band: #053333; --ink: #1d1b24; --muted: #6e6674; --line: #e4dcdc; --bg: #fbf6f4; }
+  :root { --band: #053333; --ink: #1d1b24; --muted: #6e6674; --line: #e4dcdc; --bg: #fbf6f4;
+          /* the names the number-sources panel (numsrc.css) reads, mapped onto this page's colours */
+          --surface-raised: #ffffff; --text: var(--ink); --text-2: #4f4a57; --text-3: var(--muted); --border: var(--line);
+          --border-strong: #8a8290; --focus: var(--band); --shadow-2: 0 6px 24px rgba(29,27,36,.18); --radius-md: 8px; --radius-sm: 4px;
+          --font-sans: Inter, "Helvetica Neue", Arial, system-ui, sans-serif; --font-mono: "Space Mono", ui-monospace, Menlo, monospace;
+          --text-sm: 13px; --text-xs: 12px; --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --z-overlay: 20; }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 Inter, "Helvetica Neue", Arial, system-ui, sans-serif; }
   nav { display: flex; gap: 2px; padding: 10px 16px 0; background: var(--band); overflow-x: auto; }
@@ -220,7 +247,7 @@ def render(path):
         pos = {O.split_ref(r): c for r, c in cs.items()}
         if pos:
             rmax, cmax = max(r for r, _ in pos), max(c for _, c in pos)
-            out.append("<table>")
+            out.append("<table data-nk-scope>")
             for r in range(1, rmax + 1):
                 row = []
                 skip = 0
@@ -267,15 +294,23 @@ def render(path):
                     else:
                         text, cls = ("" if v is None else str(v)), ("num" if st["align"] == "right" else "")
                     cs = f' colspan="{span}"' if span > 1 else ""
-                    row.append(f'<td{cs} class="{cls}" style="{";".join(css_cell)}">{html.escape(text)}</td>' if (css_cell or cls) else f"<td{cs}>{html.escape(text)}</td>")
+                    body = html.escape(text)
+                    if isinstance(v, (int, float)) and not isinstance(v, bool):
+                        ref = f"{O.col_letter(c)}{r}"
+                        sid = f"s{k + 1}-{ref}"
+                        body = f'<span data-nk-src="{sid}">{body}</span>'
+                        trace(src, sid, name, ref, cell, text, pos, r)
+                    elif re.search(r"[0-9]", text):
+                        cs += ' data-nk-plain="text cell"'          # a label or a note, not a number the model computed
+                    row.append(f'<td{cs} class="{cls}" style="{";".join(css_cell)}">{body}</td>' if (css_cell or cls) else f"<td{cs}>{body}</td>")
                 out.append("<tr>" + "".join(row) + "</tr>")
             out.append("</table>")
         for ch in charts.get(k, []):
             out.append(f"<h3>{html.escape(ch['title'])}</h3>" + svg_chart(ch))
         out.append("</section>")
     out.append(f'<p class="stamp">Preview of {html.escape(os.path.basename(path))}: the values stored in the file, not recalculated. '
-               "Charts are drawn from the numbers each chart carries.</p></body></html>")
-    return "\n".join(out)
+               "Charts are drawn from the numbers each chart carries. Click a number to see its cell, its formula and what was not checked.</p></body></html>")
+    return numsrc.inject("\n".join(out), src)
 
 
 def selftest():
@@ -309,6 +344,16 @@ def selftest():
         styles_ = re.findall(r'<td[^>]*style="([^"]*)"[^>]*>Assumptions: ', page)
         say(len(styles_) == 1 and styles_[0].endswith("font-family:Fraunces,Georgia,'Times New Roman',serif"),
             f"the title cell's font survives inside its style attribute ({styles_[0][-40:] if styles_ else 'no title cell'})")
+        # clickable sources: every stored number opens its cell, its formula (or that it was typed) and what was not checked
+        errors = [f for f in numsrc.check(page) if f[1] == "error"]
+        say(errors == [], f"every number on the page has a source the shared checker accepts ({errors[:2]})")
+        man = json.loads(re.search(r'<script type="application/json" id="nk-sources">(.*?)</script>', page, re.S).group(1))
+        e = man["sources"].get("s2-B16", {})
+        say(e.get("how", {}).get("text") == "=" + cells["Income statement"]["B16"]["formula"] and e["from"][0]["cells"] == "Income statement!B16"
+            and e.get("value") == f"{net:,.0f}", f"net profit's source is its own cell and formula ({e.get('how', {}).get('text')})")
+        span = f'<span data-nk-src="s2-B16">{net:,.0f}</span>'
+        say(span in page and any(c == "N06" for c, _, _ in numsrc.check(page.replace(span, f"{net:,.0f}"))),
+            "a number that loses its source is refused by the shared checker (N06)")
         drawn = charts_of(parts)[5][0]["series"][0]["vals"]
         stored = [cells["Income statement"][f"{c}6"]["value"] for c in "BCD"]
         say(drawn == stored, f"the revenue bars are drawn from the chart's own copy, which holds the stored revenue ({len(drawn)} years)")
