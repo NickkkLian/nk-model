@@ -1,11 +1,11 @@
 ---
 name: nk-model
-description: Turn a description of a small business and a few assumptions — price, units sold, costs, the days customers take to pay, equipment, a loan, tax — into a three-statement financial model in one .xlsx: an income statement, a balance sheet and a cash flow that tie to each other, a checks sheet, charts, and a sheet stating every assumption and the method. Use when someone needs to see how a business plan hangs together (when the cash runs out, what a loan or slower-paying customers do to it) or wants a model they can open in a spreadsheet and change. scripts/make_model.py builds the workbook with standard-library Python, every number a live formula with its value stored beside it, and writes nothing unless it balances to the penny; scripts/model_check.py re-checks a workbook from this skill, edited or not, cell by cell against the one it would write: plugs, changed formulas, stored values that disagree, statements that do not tie; scripts/preview.py shows it without a spreadsheet program.
+description: Turn a description of a small business and a few assumptions — price, units sold, costs, the days customers take to pay, equipment, a loan, tax — into a three-statement financial model in one .xlsx: income statement, balance sheet and cash flow that tie to each other, a checks sheet, charts, and a sheet of every assumption and the method. Use when someone needs to see how a business plan hangs together (when cash runs out, what a loan or slower-paying customers do to it) or wants a model they can open in a spreadsheet and change. scripts/make_model.py builds it in standard-library Python, every number a live formula with its value stored, and writes nothing unless it balances to the penny; scripts/model_check.py re-checks one of its workbooks, edited or not, cell by cell against the one it would write (plugs, changed formulas, disagreeing stored values, untied statements); scripts/preview.py shows it with no spreadsheet program.
 license: MIT
 compatibility: standard library only, no packages and no build step. The workbook stores every formula with its value, so a viewer that does not recalculate shows the same numbers; nothing in it runs or links out.
 metadata:
   provenance: own practice (2026-09) — the reconciliation discipline of a bank-statement categoriser of mine (exact to the penny, rebuild and compare, a deliberate break must turn red), carried over to a financial model; see Provenance
-  version: 0.1.4
+  version: 0.1.5
 ---
 # Three-statement model
 
