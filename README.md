@@ -7,6 +7,10 @@ flow for **one sales line**, or subscriptions with **uniform monthly churn and c
 life with zero residual, or reducing balance. The package selects Summary first: revenue, profit, cash, minimum funding at tested dates,
 warnings and two charts; Assumptions is second. Opening in Excel itself was not checked.
 
+![nk-model: the preview of a workbook's Summary sheet: funding status first, then revenue, net profit and cash by year](https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/results/nk-model.png)
+
+Shown in the skill's own HTML preview page.
+
 The agent must classify **every material requirement** and refuse cohort-specific churn, seasonality, monthly
 cash forecasts, product mix, prepaid/deferred revenue, custom depreciation, opening working capital and
 nonstandard financing. The code validates the **declared features and a limited set of wording patterns**;
@@ -43,6 +47,8 @@ python3 scripts/make_model.py business.json -o model.xlsx
 python3 scripts/model_check.py model.xlsx
 python3 scripts/preview.py model.xlsx -o preview.html
 ```
+
+![nk-model](https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/social/nk-model.png)
 
 Replace all example inputs. Old inputs need explicit migration to scope, sales timing and depreciation fields. No
 network, installs or spreadsheet application is required to build/check files. Python 3.9+ standard library only.
