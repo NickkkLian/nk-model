@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ooxml as O
 import numsrc  # the clickable number sources layer shared with the other nk-* page skills
 
-VERSION = "0.1.4"   # written into the sources manifest as the generator
+VERSION = "0.2.0"   # written into the sources manifest as the generator
 FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "fonts")
 FONTS = [("Fraunces", "fraunces-latin-wght.woff2", "100 900"), ("Inter", "inter-latin-wght.woff2", "100 900"),
          ("Space Mono", "space-mono-latin-400.woff2", "400")]
@@ -211,10 +211,12 @@ def render(path):
     xfs = styles(parts)
     charts = charts_of(parts)
     names = list(cells)
-    widths = {}
+    widths, merged = {}, {}
     for k in range(1, len(names) + 1):
         root = ET.fromstring(parts[f"xl/worksheets/sheet{k}.xml"])
         widths[k - 1] = {int(c.get("min")): float(c.get("width")) for c in root.iter("{%s}col" % O.NS)}
+        merged[k-1] = {O.split_ref(m.get('ref').split(':')[0]): O.split_ref(m.get('ref').split(':')[1])
+                       for m in root.iter('{%s}mergeCell' % O.NS)}
     css = """
   :root { --band: #053333; --ink: #1d1b24; --muted: #6e6674; --line: #e4dcdc; --bg: #fbf6f4;
           /* the names the number-sources panel (numsrc.css) reads, mapped onto this page's colours */
@@ -257,13 +259,19 @@ def render(path):
                     cell = pos.get((r, c))
                     # text runs on over the empty cells to its right, as a spreadsheet shows it, instead of widening its column
                     span = 1
-                    if cell and isinstance(cell["value"], str) and c > 1:
+                    if (r,c) in merged[k]:
+                        span = merged[k][r,c][1] - c + 1
+                        skip = span - 1
+                    elif cell and isinstance(cell["value"], str) and c > 1:
                         while c + span <= cmax and not pos.get((r, c + span)):
                             span += 1
                         skip = span - 1
                     st = xfs[cell["style"]] if cell else xfs[0]
                     v = cell["value"] if cell else None
                     css_cell = []
+                    if (r,c) in merged[k]:
+                        css_cell.append('white-space:normal')
+                        css_cell.append('max-width:1000px')
                     w = widths[k].get(c)
                     if w and r == 1:
                         css_cell.append(f"min-width:{w * 7:.0f}px")
@@ -330,7 +338,7 @@ def selftest():
         subprocess.run([sys.executable, os.path.join(here, "make_model.py"), src, "-o", xl], capture_output=True)
         page = render(xl)
         cells, parts = O.read(xl)
-        say(page.count("<section ") == len(cells) == 6, "one section per sheet")
+        say(page.count("<section ") == len(cells) == 7, "one section per sheet")
         net = cells["Income statement"]["B16"]["value"]
         say(f"{net:,.0f}" in page, f"a stored value appears as the sheet formats it (net profit {net:,.0f})")
         say(page.count("<svg ") == 2 and "<rect" in page and "<polyline" in page, "both charts are drawn, bars and a line")
@@ -348,13 +356,13 @@ def selftest():
         errors = [f for f in numsrc.check(page) if f[1] == "error"]
         say(errors == [], f"every number on the page has a source the shared checker accepts ({errors[:2]})")
         man = json.loads(re.search(r'<script type="application/json" id="nk-sources">(.*?)</script>', page, re.S).group(1))
-        e = man["sources"].get("s2-B16", {})
+        e = man["sources"].get("s3-B16", {})
         say(e.get("how", {}).get("text") == "=" + cells["Income statement"]["B16"]["formula"] and e["from"][0]["cells"] == "Income statement!B16"
             and e.get("value") == f"{net:,.0f}", f"net profit's source is its own cell and formula ({e.get('how', {}).get('text')})")
-        span = f'<span data-nk-src="s2-B16">{net:,.0f}</span>'
+        span = f'<span data-nk-src="s3-B16">{net:,.0f}</span>'
         say(span in page and any(c == "N06" for c, _, _ in numsrc.check(page.replace(span, f"{net:,.0f}"))),
             "a number that loses its source is refused by the shared checker (N06)")
-        drawn = charts_of(parts)[5][0]["series"][0]["vals"]
+        drawn = charts_of(parts)[0][0]["series"][0]["vals"]
         stored = [cells["Income statement"][f"{c}6"]["value"] for c in "BCD"]
         say(drawn == stored, f"the revenue bars are drawn from the chart's own copy, which holds the stored revenue ({len(drawn)} years)")
         first = page.split("<svg ")[1].split("</svg>")[0]

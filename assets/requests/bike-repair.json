@@ -1,0 +1,12 @@
+{
+  "description": "A one-workshop bike repair and parts business on a harbour road: repairs and servicing, with parts sold at the counter.",
+  "scope": {
+    "features": [
+      "annual_sales",
+      "reducing_balance",
+      "working_capital_days",
+      "equal_principal_loan"
+    ],
+    "notes": "Annual single-line planning. New equipment bought at year end; cash not scheduled within a year."
+  }
+}

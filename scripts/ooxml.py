@@ -140,7 +140,8 @@ class Styles:
             attrs += (' applyNumberFormat="1"' if nf else "") + (' applyFont="1"' if fi else "") + \
                      (' applyFill="1"' if fl else "") + (' applyBorder="1"' if bd else "")
             if align or indent:
-                out.append(f'<xf {attrs} applyAlignment="1"><alignment' + (f' horizontal="{align}"' if align else "") +
+                alignment = ' horizontal="left" wrapText="1" vertical="center"' if align == 'wrap' else (f' horizontal="{align}"' if align else '')
+                out.append(f'<xf {attrs} applyAlignment="1"><alignment' + alignment +
                            (f' indent="{indent}"' if indent else "") + "/></xf>")
             else:
                 out.append(f"<xf {attrs}/>")
@@ -176,6 +177,16 @@ class Sheet:
     def width(self, col, chars):
         self.widths[col] = chars
 
+    def merge(self, r0, c0, r1, c1):
+        if not hasattr(self, 'merges'):
+            self.merges = []
+        self.merges.append(f'{ref(r0,c0)}:{ref(r1,c1)}')
+
+    def height(self, row, points):
+        if not hasattr(self, 'heights'):
+            self.heights = {}
+        self.heights[row] = points
+
     def chart(self, **spec):
         self.charts.append(spec)
 
@@ -200,7 +211,8 @@ class Sheet:
             out.append("<cols>" + "".join(f'<col min="{c}" max="{c}" width="{w}" customWidth="1"/>' for c, w in sorted(self.widths.items())) + "</cols>")
         out.append("<sheetData>")
         for r in sorted(rows):
-            out.append(f'<row r="{r}">')
+            height = getattr(self, 'heights', {}).get(r)
+            out.append(f'<row r="{r}"' + (f' ht="{height}" customHeight="1"' if height else '') + '>')
             for c, (kind, value, formula, st) in sorted(rows[r]):
                 a = f'r="{col_letter(c)}{r}"' + (f' s="{st}"' if st else "")
                 f = f"<f>{escape(formula)}</f>" if formula is not None else ""
@@ -216,6 +228,9 @@ class Sheet:
                     out.append(f'<c {a} t="s"><v>{strings.index(value)}</v></c>')
             out.append("</row>")
         out.append("</sheetData>")
+        merges = getattr(self, 'merges', [])
+        if merges:
+            out.append(f'<mergeCells count="{len(merges)}">' + ''.join(f'<mergeCell ref="{m}"/>' for m in merges) + '</mergeCells>')
         out.append('<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>')
         if self.charts:
             out.append('<drawing r:id="rId1"/>')
@@ -462,7 +477,7 @@ def read(path):
             if t == "s" and text is not None:
                 value = strings[int(text)]
             elif t in ("str", "inlineStr"):
-                value = text if t == "str" else "".join(x.text or "" for x in c.iter("{%s}t" % NS))
+                value = (text or "") if t == "str" else "".join(x.text or "" for x in c.iter("{%s}t" % NS))
             elif t == "b":
                 value = text == "1"
             elif t == "e":
@@ -504,6 +519,7 @@ def selftest():
     s.set(5, 2, 63.0, formula="SUM(B2:B4)", style="num")
     s.set(6, 2, "yes", formula='IF(B5>0,"yes","no")')
     s.set(7, 2, True, formula="B5>0")
+    s.set(8, 2, "", formula='IF(B5>0,"","no")')
     s.freeze = "B2"
     s.chart(kind="bar", title="Value by year", at=(4, 2, 10, 16), categories=("'Data & notes'!$A$2:$A$4", ["Y1", "Y2", "Y3"]),
             series=[("Value", "'Data & notes'!$B$2:$B$4", [10.5, 21.0, 31.5], "CA6980")])
@@ -516,7 +532,7 @@ def selftest():
         cells, parts = read(p1)
         d = cells["Data & notes"]
         say(d["B5"]["formula"] == "SUM(B2:B4)" and d["B5"]["value"] == 63.0, "a formula is stored with its value, and both read back")
-        say(d["B6"]["value"] == "yes" and d["B6"]["formula"].startswith("IF(") and d["B7"]["value"] is True, "text and true/false results of formulas read back")
+        say(d["B6"]["value"] == "yes" and d["B6"]["formula"].startswith("IF(") and d["B7"]["value"] is True and d["B8"]["value"] == "", "text (including empty text) and true/false results of formulas read back")
         say(d["A2"]["value"] == "Y1" and d["B3"]["value"] == 21.0 and d["B3"]["formula"] is None, "plain text and numbers read back, with no formula")
         for name, blob in parts.items():
             if name.endswith(".xml") or name.endswith(".rels"):

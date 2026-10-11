@@ -1,151 +1,112 @@
 ---
 name: nk-model
-description: "Turn a description of a small business and a few assumptions — price, units sold, costs, the days customers take to pay, equipment, a loan, tax — into a three-statement financial model in one .xlsx: income statement, balance sheet and cash flow that tie to each other, a checks sheet, charts, and a sheet of every assumption and the method. Use when someone needs to see how a business plan hangs together (when cash runs out, what a loan or slower-paying customers do to it) or wants a model they can open in a spreadsheet and change. scripts/make_model.py builds it in standard-library Python, every number a live formula with its value stored, and writes nothing unless it balances to the penny; scripts/model_check.py re-checks one of its workbooks, edited or not, cell by cell against the one it would write (plugs, changed formulas, disagreeing stored values, untied statements); scripts/preview.py shows it with no spreadsheet program."
+description: "Use when a business needs annual three-statement Excel models for one sales line, or subscriptions with uniform monthly churn and constant monthly additions. Assess fit before translating assumptions; refuse cohort churn, seasonality, product mix, custom depreciation or financing. Opens on Summary with profit, cash, funding warnings and charts. Standard-library Python, live formulas, stored values and an offline preview."
 license: MIT
-compatibility: standard library only, no packages and no build step. The workbook stores every formula with its value, so a viewer that does not recalculate shows the same numbers; nothing in it runs or links out.
 metadata:
-  provenance: own practice (2026-09) — the reconciliation discipline of a bank-statement categoriser of mine (exact to the penny, rebuild and compare, a deliberate break must turn red), carried over to a financial model; see Provenance
-  version: 0.1.7
+  compatibility: "Python 3.9+ standard library only; no installs, network, macros or external links needed."
+  version: 0.2.0
 ---
 # Three-statement model
 
-**A business plan is three statements that have to agree.** Profit is on the income statement, cash is on the cash
-flow, and the balance sheet is where the two meet: if the model is right, assets equal liabilities plus equity, to the
-penny, every year. A model that does not balance has a mistake in it somewhere, and a model that balances only because
-someone typed a number into the balance sheet (a plug) is worse, because it looks right. This skill builds the model
-from a handful of assumptions, with every number a formula a person can follow, and refuses to hand over one that
-does not balance.
+Use for annual single-line businesses with units, price, variable and fixed costs growing at constant annual rates.
+Also supports subscriptions with one uniform monthly churn rate and constant additions at month end.
+Equipment uses reducing balance or straight line over a whole-year useful life, with zero residual value.
+Statements and cash checks are annual. Monthly subscription revenue is exact for the stated convention;
+monthly cash is not computed. Opening and year-end cash can miss any size of intra-year shortfall.
 
-> **Paths.** Commands in this skill start with `${…SKILL_DIR}`: this skill's own folder, the one that contains this SKILL.md. Claude Code fills it in. If your agent shows the placeholder as written (Codex, Cursor, Gemini CLI and others), replace it with that folder's absolute path before you run the command. Left as it is, it expands to nothing and the path breaks.
+Refuse cohort-specific churn, seasonality, monthly cash forecasts, multiple products, prepaid/deferred revenue,
+custom depreciation, used assets, partial years, residual values, multiple or nonstandard loans, opening working
+capital, owner distributions and tax loss carryforwards. Unknown requirements are refused until mapped honestly
+to supported capabilities. A model that balances can still describe the wrong business.
 
-## When this applies
-
-- Someone describes a business — a workshop, a stall, a studio, a small online shop — and asks what it would earn,
-  whether it would run out of cash, or what a loan would do.
-- A plan needs to be shown to a partner, a lender or a class as a spreadsheet they can open and change.
-- Someone has a model already and wants to know whether it holds together: `model_check.py` answers that for a
-  workbook this skill wrote, edited or not, cell by cell (what it does not look at is under Boundaries).
+> **Paths.** `${…SKILL_DIR}` means this skill's own folder. Claude Code fills in `${CLAUDE_SKILL_DIR}`; another
+> agent must replace it with this folder's absolute path before running the commands below.
 
 ## Procedure
 
-1. **Write the business down**: `python3 ${CLAUDE_SKILL_DIR}/scripts/make_model.py --init business.json` gives a
-   filled-in example to edit (every field is described in `references/business-format.md`). Ask for the numbers the
-   person knows; where they do not know one, say what you assumed and why.
-2. **Say whether the numbers are real.** Made-up numbers are marked `"illustrative": true`; real ones need a
-   `"sources"` line saying where they come from. The workbook's first sheet repeats it, and says it is not advice.
-3. **Build the workbook**: `python3 ${CLAUDE_SKILL_DIR}/scripts/make_model.py business.json -o model.xlsx`. It refuses
-   a business that breaks a rule (B01 the file, including text with a control character or an emoji; B02 numbers
-   outside sensible ranges, and no amount above a billion; B03 real numbers with no source),
-   works the model out twice — once through the workbook's own formulas, once in plain Python without them — and
-   writes nothing if the two disagree anywhere or the balance sheet is off by a penny in any year.
-4. **Check it**: `python3 ${CLAUDE_SKILL_DIR}/scripts/model_check.py model.xlsx` reads the file back and checks
-   eleven things. It builds again the workbook this skill would write for the same years and compares every cell: K01
-   the layout (the six sheets, none hidden, every label and line of the method word for word, every cell's number
-   format, no cell filled that this skill leaves empty) · K02 no plugs (every statement cell holds exactly this
-   skill's formula, nothing is typed where it writes nothing, and the inputs are plain numbers) · K03 every stored
-   value is what its formula gives · K04 the balance sheet adds up and balances · K05 the three statements tie · K06
-   the inputs are ones the builder accepts, and the numbers follow the stated method · K07 the Checks sheet tells the
-   truth · K08 the honesty sentence · K09 no macros, external links, embedded objects or hyperlinks, and no link from
-   the package to outside it · K10 the two charts draw the right cells under the right names, and the charts' copies
-   of the numbers match · K11 no emoji or icon characters from the builder's set. What it does not look at is under
-   Boundaries. Run it again after anyone edits the workbook. It reads the file with
-   `${CLAUDE_SKILL_DIR}/scripts/ooxml.py` and evaluates each formula with `${CLAUDE_SKILL_DIR}/scripts/xlformula.py`,
-   which follows Excel's own order of operations (`python3 ${CLAUDE_SKILL_DIR}/scripts/xlformula.py "2^3^2"` gives 64).
-5. **Read the cash line.** If cash goes below zero (by more than half a penny) at the start or at a year end, both
-   scripts say so: the plan needs money the model does not include. That is usually the most useful thing the model
-   says; tell the person in plain words.
-6. **Look at it without a spreadsheet** if you cannot open one:
-   `python3 ${CLAUDE_SKILL_DIR}/scripts/preview.py model.xlsx -o preview.html` shows every sheet as stored, and the
-   charts from the numbers they carry.
-7. **Hand it over** with the three facts that matter: whether it balances (it always will, or it would not exist),
-   when the cash is lowest, and what the model leaves out (it says on the Assumptions sheet).
+1. **Assess the original description before translating numbers.** Read `references/business-format.md`. Write
+   `request.json` with the original `description` and a `scope` containing `features` and plain-word `notes`.
+   Classify every material requirement, including timing and omitted inputs. Run:
+   `python3 ${CLAUDE_SKILL_DIR}/scripts/make_model.py --preflight request.json`.
+   Show its fit assessment to the user before creating `business.json`. Unsupported or unknown features return B04
+   and no workbook. Code validates declared features and a few explicit prose patterns; it cannot understand arbitrary
+   prose. You must not omit requirements to obtain a pass or flatten monthly churn into annual growth.
+2. **Resolve mismatches before translating.** Explain what is unsupported and what would change. This build refuses
+   unsupported features; it does not offer a bounded approximation for them. Uniform churn can differ without a
+   finite bound from an arbitrary cohort-retention curve; annual cash can miss any size of seasonal funding need.
+   Do not build the original request in those cases. A user-authorized simpler request needs a new preflight and
+   an explicit record of the change. Existing authorization to simplify is sufficient; do not ask again.
+3. **Translate an accepted request.** `python3 ${CLAUDE_SKILL_DIR}/scripts/make_model.py --init business.json`
+   writes a filled example. Replace all example inputs, copy assessed `scope`, retain the original `description`, and
+   write a `business_line` of at most 110 characters as input metadata. Summary generates its sales description
+   from the selected model rather than copying that prose. List every missing-number assumption and why in
+   `scope.notes`, retained on Assumptions. In subscription mode set
+   unused annual units and unit growth to zero. Bill opening-month customers, apply churn to them, then add customers
+   at month end. New customers first pay next month. Price and unit cost change only at year boundaries. Expected
+   customer counts may be fractional.
+4. **State provenance.** Invented scenarios use `illustrative: true`. Real inputs use `illustrative: false` and a
+   `sources` sentence. Summary and Assumptions repeat the honesty sentence. This is not financial advice.
+5. **Build and check**, using separate commands:
 
-## Clickable number sources
+   ```bash
+   python3 ${CLAUDE_SKILL_DIR}/scripts/make_model.py business.json -o model.xlsx
+   python3 ${CLAUDE_SKILL_DIR}/scripts/model_check.py model.xlsx
+   python3 ${CLAUDE_SKILL_DIR}/scripts/preview.py model.xlsx -o preview.html
+   ```
 
-In the preview (step 6), click any number and a panel shows its cell, its formula (or that the number was typed in,
-with no formula) and what was not checked: the preview shows the stored value and does not recalculate it, and nothing
-was compared with Microsoft Excel. Every number in a sheet must carry its source: one that loses it is refused
-(preview.py's self-test).
+   B01 validates schema/types, duplicate keys and XML-safe text; B02 ranges; B03 provenance; B04 scope and method
+   agreement. Old inputs without scope and the new timing/method fields are refused; migrate explicitly. The builder
+   evaluates formulas and separately calculates statements in plain Python. It writes nothing if statement values
+   differ by half a penny or accounting checks fail.
+6. **Read Summary first.** It is selected on open; Assumptions comes second. It shows the name and modeled sales in one line,
+   revenue, net profit, year-end cash, lowest opening/year-end cash and earliest matching date, minimum additional
+   funding, applicable timing/method descriptions and two charts. These descriptions are live formulas; absent
+   equipment and loans have blank descriptions. Opening equipment is distinguished from recurring year-end purchases.
+   Read the original request and all scope notes on Assumptions, and disclose them at handover. Negative tested cash puts “Funding needed: cash
+   below zero” at the top. Funding is `max(0, -lowest tested cash)`, a lower bound at tested points, not a monthly
+   forecast or an automatic borrowing plug. Shortfalls below half a penny count as zero for this warning.
+7. **Hand over workbook and preview.** State lowest tested cash, date, funding need and all simplifications. Follow
+   `references/acceptance.md` and report native-application checks actually performed. Change numeric assumptions
+   to model alternatives. Editing formulas is outside the supported model.
 
-The panel is the shared number-sources layer that nk-design, nk-data-story, nk-deck, nk-model and nk-explorer all
-use, the same three files in each (`scripts/numsrc.py`, `assets/numsrc.js`, `assets/numsrc.css`): Tab to a number, Enter
-or Space opens it, Esc closes it and puts the focus back; printed, the numbers are plain text. `python3
-${CLAUDE_SKILL_DIR}/scripts/numsrc.py check page.html` checks a page: every marked number has an entry, every entry says
-where from, how and what was not checked, and the runtime is the shipped one, byte for byte.
+Each of the six scripts accepts `--selftest`. The number-source check is
+`python3 ${CLAUDE_SKILL_DIR}/scripts/numsrc.py check preview.html`; clicking a number shows its cell, formula and
+verification limits. `${CLAUDE_SKILL_DIR}/scripts/ooxml.py` writes and reads workbook packages;
+`${CLAUDE_SKILL_DIR}/scripts/xlformula.py` evaluates the supported formulas. Their self-tests check the package
+reader/writer and formula semantics separately from the builder and checker suites.
 
-## Rules that keep it honest
+## Methods and limits
 
-- **No plugs.** Every number on the statements is a formula pointing back at the assumptions or at another
-  statement. A number typed into a statement is refused by the checker, even when it is the right number — in a
-  cell that should hold a formula, in a cell this skill leaves empty, or written as a formula (=14400.30); so is a
-  formula edited so that the totals still come out the same.
-- **Balanced to the penny, or nothing.** The builder does not write a workbook that is off by half a penny anywhere,
-  and the checker recomputes the balance from the lines themselves, not from the totals, so two totals that are wrong
-  by the same amount cannot hide each other.
-- **The method is written down and checked.** The Assumptions sheet says how every line is worked out; the checker
-  works the model out again from those inputs in plain Python and compares.
-- **Stored values are real values.** Each formula's value is stored beside it, so a viewer that does not
-  recalculate shows the numbers the formulas give — and the checker recomputes every one. Where this skill's
-  arithmetic can differ from Excel's by a hair is under Boundaries.
-- **Made up or sourced, and never advice.** The first sheet says which, and says the model is not financial advice.
-
-## Boundaries
-
-- **Yearly, one to ten years, one product line.** Units, a price, a cost per unit and fixed costs, each growing at
-  one rate. No months, no seasons, no product mix.
-- **One way of doing each thing**: reducing-balance depreciation on equipment, working capital by days, one loan
-  repaid in equal yearly amounts with interest on the opening balance, tax only on a profit with no losses carried
-  forward, nothing paid out to the owners. Anything else means editing the formulas, and then `model_check.py` will
-  say, correctly, that they are no longer this skill's formulas (K02); depending on the change it also says that the
-  statements no longer tie (K05, as when money is paid out to the owners) or that the numbers no longer follow the
-  stated method (K06, as with straight-line depreciation). Changing the inputs on the Assumptions sheet is the edit
-  the model is for.
-- **Not advice, and not a forecast of anything.** It shows how the assumptions fit together; whether the assumptions
-  are right is the person's to judge.
-- **Checked by reading the file, not by Excel.** The checks here read the workbook back with this skill's own reader,
-  and the files were also opened by macOS Quick Look and by openpyxl; they have not been opened in Microsoft Excel by
-  these checks. Edits are judged cell by cell, as the file stores them; a workbook saved again by a spreadsheet
-  program has not been tested, and may be reported as edited where only its storage differs. A shared formula (how
-  Excel stores a filled-down run) is read as the formula it stands for when it is stored the usual way; in a group
-  where more than one cell carries formula text, this reader and openpyxl can expand a cell differently, so such a
-  file can pass here while openpyxl reads other formulas. Fonts named in the file (Fraunces, Inter, Space Mono) fall
-  back to the viewer's own where they are not installed.
-- **What the checker does not look at.** It compares the cells and their number formats, what the two charts draw and
-  their copies of the numbers, and the package's links, macros and embedded objects. An edit anywhere else passes,
-  even one that changes what a reader sees: a conditional format that shows a number as fixed text, a third chart, a
-  text box laid over a number, a chart's title or its copy of the year labels, hidden rows or columns, merged cells, a
-  font colour, a data connection such as a web query (`xl/connections.xml`), text moved into a phonetic guide (read
-  here as part of the label; openpyxl leaves it out), Excel's "precision as displayed" setting, or the note under a
-  sheet's title, which is free text like the business's name. Open the file and look before it goes anywhere
-  (`references/acceptance.md`).
-- **Where its arithmetic is not Excel's.** The formula evaluator follows Excel's order of operations and refuses what
-  it could not test (`&`, `ROUND`, `TRUE` or text typed into `SUM`, `MIN` or `MAX`, a range inside `AND` or `OR`). It
-  does not refuse four cases where its answer differs from what Microsoft documents for Excel, or may: a sum that
-  comes out a hair from zero (`1.333 + 1.225 - 1.333 - 1.225` is -2.2e-16 here; Excel 97 and later show 0); text in
-  arithmetic (`"1"+"2"` is an error here, 3 in Excel); text reached through a reference inside `AND` or `OR` (an error
-  here; Excel ignores it); and a TRUE worked out inside `SUM`, `MIN` or `MAX` (`SUM(1=1)` is 0 here; Microsoft's pages
-  do not say). None was tried in Excel. Only the first can come from this skill's own formulas.
-- **Text XML cannot hold.** The builder refuses control characters and emoji, but not U+FFFE or U+FFFF: a name or
-  description holding one is written into a workbook that is not valid XML, which `model_check.py` and openpyxl
-  cannot read. Nor are ⤴ and ⤵ refused, though Unicode lists them as emoji.
-- **Very large sums.** Every input can be within its range and the sums still reach the trillions (large amounts
-  growing by hundreds of percent a year), where floating point is not exact to the penny. The builder writes such a
-  workbook, and the checker, which adds and compounds its own way, can then report a difference at the last penny
-  (K05 or K06).
-- **Rounded for display.** The statements show money in whole units, and prices, unit costs and the check lines to
-  the penny; every total is worked out before rounding, so a total can be a few units off the sum of the lines it
-  shows (at most half a unit for each number in the sum, the total included), and units, which grow by a percentage,
-  are not whole numbers. Each statement's note says it is rounded, and the Assumptions sheet's method says the rest.
-  A year-end cash of exactly nothing can be stored as -0.0000000000036, which Excel may show as "(0)", since its
-  format picks the negative section by the sign of the stored value (not tried in Excel).
-- **The checker knows this skill's layout.** It checks workbooks this skill wrote; a model from anywhere else is
-  reported as not from this skill (K01), not checked.
+- One to ten annual periods; one sales line. Subscription churn and additions stay constant across the horizon.
+- Straight line tracks opening cost and equal yearly purchases by age: opening assets start in year one; year-end
+  purchases start next year; depreciation stops after useful life. Zero residual; new equipment only. Reducing balance
+  applies a rate to opening net equipment and does not promise full write-off by a fixed life.
+- Receivables = annual revenue × days / 365. Inventory and payables = annual cost of sales × days / 365. Opening
+  balances are zero. This is an annual convention, not a procurement or collections schedule.
+- One opening loan, equal annual principal, interest on opening balance. Tax on positive annual pretax profit only;
+  no loss carryforward or deferred tax, no owner payouts, no automatic funding of negative cash.
+- Calculated statement, monthly-schedule and Summary numbers are formulas with stored values. Assumptions contain
+  editable numbers. Chart references stay live; chart caches support viewers without recalculation.
+- Summary business-method sentences are generated from numeric inputs and statement flows. Free-text business
+  and scope descriptions are not copied into those sentences. Provenance is repeated from Assumptions.
+- Money displays in whole units; calculations are unrounded. Checks show pennies. Arithmetic acceptance tolerance
+  is absolute error less than 0.005 currency units for identities and supported business calculations, not forecast
+  accuracy. Inputs are capped at a billion; compounded sums can exceed float precision, causing builder/checker
+  disagreement. Resolve any finding before handover.
+- K01–K11 check layout/formats, exact formulas/no plugs, caches, balance-sheet sums, statement ties, methods,
+  numeric inputs/scope, truthful Checks/Summary, provenance, unsafe links/packages, chart references/caches and the
+  configured icon set. The checker rebuilds a reference using builder code: it is not an independent business-method
+  oracle. Use a separate calculation to verify the description.
+- Presentation is not fully audited: hidden rows/columns, extra charts, drawings/text boxes, conditional formats,
+  merges, fonts/colors, chart titles/year caches, data connections and precision-as-displayed can escape checks.
+  Descriptions and scope notes are free text with safe-character and scope checks. Look at the file.
+- The included formula evaluator is not Excel. Near-zero cancellation, text arithmetic/logical functions and logical
+  results inside SUM/MIN/MAX can differ, as described in `${CLAUDE_SKILL_DIR}/scripts/xlformula.py`. Preview and caches do not establish
+  native Excel recalculation. This upgrade has not opened or saved the build in Microsoft Excel.
+- Spreadsheet-program saves can change storage in ways the checker flags. Shared formulas work in the usual
+  one-master form; ambiguous multi-master groups are not reliable. Fonts fall back where not installed.
 
 ## Provenance
 
-Own practice, 2026-09. The discipline comes from a bank-statement categoriser of mine: totals that must reconcile to
-the penny, output that is rebuilt and compared rather than trusted, and a deliberate break that has to turn a check
-red before the check counts. This skill carries it to a financial model and keeps none of that code; the workbook
-writer, the formula checker and the model are new here. The rule against plugs, and the decision to recompute the
-balance from the lines instead of from the totals, come from how a model most often looks right while being wrong. The
-colours come from the token file shared with the other work in this family.
+The author's reconciliation approach comes from bank-statement work: no plugs, add the lines independently and
+prove deliberate breaks are detected. See `references/invariants.md` for the accounting identities.
