@@ -1,6 +1,6 @@
 ---
 name: nk-model
-description: "Use when a business needs annual three-statement Excel models for one sales line, or subscriptions with uniform monthly churn and constant monthly additions. Assess fit before translating assumptions; refuse cohort churn, seasonality, product mix, custom depreciation or financing. Opens on Summary with profit, cash, funding warnings and charts. Standard-library Python, live formulas, stored values and an offline preview."
+description: "Use when a business needs annual three-statement Excel models for one sales line, or subscriptions with uniform monthly churn and constant monthly additions. Assess and classify every requirement before translating assumptions; agents must refuse unsupported needs, while code checks declared features and limited wording patterns. Package selects Summary with profit, cash, funding warnings and charts; opening in Excel itself is untested. Standard-library Python, live formulas, stored values and an offline preview."
 license: MIT
 metadata:
   compatibility: "Python 3.9+ standard library only; no installs, network, macros or external links needed."
@@ -14,10 +14,14 @@ Equipment uses reducing balance or straight line over a whole-year useful life, 
 Statements and cash checks are annual. Monthly subscription revenue is exact for the stated convention;
 monthly cash is not computed. Opening and year-end cash can miss any size of intra-year shortfall.
 
-Refuse cohort-specific churn, seasonality, monthly cash forecasts, multiple products, prepaid/deferred revenue,
-custom depreciation, used assets, partial years, residual values, multiple or nonstandard loans, opening working
-capital, owner distributions and tax loss carryforwards. Unknown requirements are refused until mapped honestly
-to supported capabilities. A model that balances can still describe the wrong business.
+The agent must classify every material requirement and refuse cohort-specific churn, seasonality, monthly cash
+forecasts, multiple products, prepaid/deferred revenue, custom depreciation, used assets, partial years, residual
+values, multiple or nonstandard loans, opening working capital, owner distributions and tax loss carryforwards.
+Code validates declared features and limited wording patterns, not arbitrary prose: an unsupported need written
+differently can pass when classification omits it. An outsider's monthly-cash prose request passed with only annual
+features declared; a sentence denying seasonality was refused by the wording check. Keep original prose and
+disclose classification; do not remove words to force acceptance. Resolve unknown requirements before building.
+A model that balances can still describe the wrong business.
 
 > **Paths.** `${…SKILL_DIR}` means this skill's own folder. Claude Code fills in `${CLAUDE_SKILL_DIR}`; another
 > agent must replace it with this folder's absolute path before running the commands below.
@@ -31,7 +35,7 @@ to supported capabilities. A model that balances can still describe the wrong bu
    Show its fit assessment to the user before creating `business.json`. Unsupported or unknown features return B04
    and no workbook. Code validates declared features and a few explicit prose patterns; it cannot understand arbitrary
    prose. You must not omit requirements to obtain a pass or flatten monthly churn into annual growth.
-2. **Resolve mismatches before translating.** Explain what is unsupported and what would change. This build refuses
+2. **Resolve mismatches before translating.** Explain what is unsupported and what would change. The code refuses declared
    unsupported features; it does not offer a bounded approximation for them. Uniform churn can differ without a
    finite bound from an arbitrary cohort-retention curve; annual cash can miss any size of seasonal funding need.
    Do not build the original request in those cases. A user-authorized simpler request needs a new preflight and
@@ -45,7 +49,8 @@ to supported capabilities. A model that balances can still describe the wrong bu
    at month end. New customers first pay next month. Price and unit cost change only at year boundaries. Expected
    customer counts may be fractional.
 4. **State provenance.** Invented scenarios use `illustrative: true`. Real inputs use `illustrative: false` and a
-   `sources` sentence. Summary and Assumptions repeat the honesty sentence. This is not financial advice.
+   `sources` sentence. Summary and Assumptions repeat that supplied provenance. The code checks its presence
+   and consistency, not the authenticity of inputs or sources. This is not financial advice.
 5. **Build and check**, using separate commands:
 
    ```bash
@@ -56,15 +61,17 @@ to supported capabilities. A model that balances can still describe the wrong bu
 
    B01 validates schema/types, duplicate keys and XML-safe text; B02 ranges; B03 provenance; B04 scope and method
    agreement. Old inputs without scope and the new timing/method fields are refused; migrate explicitly. The builder
-   evaluates formulas and separately calculates statements in plain Python. It writes nothing if statement values
-   differ by half a penny or accounting checks fail.
-6. **Read Summary first.** It is selected on open; Assumptions comes second. It shows the name and modeled sales in one line,
+   evaluates formulas and compares selected statement values against a separate plain-Python calculation inside
+   the same builder; this does not independently check every monthly or Summary cell. It writes nothing if compared
+   values differ by half a penny or more, or accounting checks fail.
+6. **Read Summary first.** It is selected on open; Assumptions comes second. It shows the name in row 1 and modeled sales in row 2,
    revenue, net profit, year-end cash, lowest opening/year-end cash and earliest matching date, minimum additional
    funding, applicable timing/method descriptions and two charts. These descriptions are live formulas; absent
    equipment and loans have blank descriptions. Opening equipment is distinguished from recurring year-end purchases.
-   Read the original request and all scope notes on Assumptions, and disclose them at handover. Negative tested cash puts “Funding needed: cash
-   below zero” at the top. Funding is `max(0, -lowest tested cash)`, a lower bound at tested points, not a monthly
-   forecast or an automatic borrowing plug. Shortfalls below half a penny count as zero for this warning.
+   Read the original request and all scope notes on Assumptions, and disclose them at handover. Tested cash below −0.005 currency units puts “Funding needed: cash
+   below zero” at the top. Funding is `-lowest tested cash` when that cash is below −0.005, otherwise zero:
+   a lower bound at tested points, not a monthly forecast or an automatic borrowing plug. Shortfalls of exactly
+   half a penny or less count as zero funding and do not trigger this warning.
 7. **Hand over workbook and preview.** State lowest tested cash, date, funding need and all simplifications. Follow
    `references/acceptance.md` and report native-application checks actually performed. Change numeric assumptions
    to model alternatives. Editing formulas is outside the supported model.
@@ -89,7 +96,9 @@ reader/writer and formula semantics separately from the builder and checker suit
   editable numbers. Chart references stay live; chart caches support viewers without recalculation.
 - Summary business-method sentences are generated from numeric inputs and statement flows. Free-text business
   and scope descriptions are not copied into those sentences. Provenance is repeated from Assumptions.
-- Money displays in whole units; calculations are unrounded. Checks show pennies. Arithmetic acceptance tolerance
+- Statement totals display whole currency units; prices and unit costs display two decimals and Checks show
+  pennies. Computations generally retain precision, but near-zero opening cash and accounting-check differences
+  with absolute value below 0.005 are normalized to zero. Arithmetic acceptance tolerance
   is absolute error less than 0.005 currency units for identities and supported business calculations, not forecast
   accuracy. Inputs are capped at a billion; compounded sums can exceed float precision, causing builder/checker
   disagreement. Resolve any finding before handover.

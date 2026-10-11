@@ -5,7 +5,9 @@
 First write `request.json`: `{"description": "Original request", "scope": {"features": ["annual_sales", "straight_line"],
 "notes": "Explain timing, conventions and omitted inputs."}}`. Run `make_model.py --preflight request.json` before
 creating numeric assumptions. This checks declared capabilities and a few prose patterns, not arbitrary prose.
-The agent must classify all material requirements. Missing scope and unknown/unsupported features are B04.
+The agent must classify all material requirements. Missing scope and unknown/unsupported declared features are
+B04. Unsupported needs omitted from the declaration can pass when their wording misses the limited patterns;
+negation is not understood by those patterns. Preserve original prose and disclose the classification.
 
 Supported names: `annual_sales`, `monthly_subscription`, `straight_line`, `reducing_balance`, `working_capital_days`,
 `equal_principal_loan`, `profit_tax`. Business scope must include exactly one sales and one depreciation method,
@@ -41,7 +43,7 @@ year can still reach sums where floating point is not, and the checker may then 
 | `first_year` | The first year of the model | a whole number, 1900 to 2200 |
 | `years` | How many years | a whole number, 1 to 10 (B02) |
 | `illustrative` | `true` when the numbers are made up | true or false (B01) |
-| `sources` | Where real numbers come from | text; required when `illustrative` is false, and not allowed when it is true (B03) |
+| `sources` | Supplied declaration of where real numbers come from; not authenticated | text; required when `illustrative` is false, and not allowed when it is true (B03) |
 | `scope` | `features` list and `notes` text, copied from preflight with all added assumptions | required; unsupported/unknown features refused (B04) |
 | `sales` | `units`, `unit_growth`, `price`, `price_growth`, `mode`, `opening_customers`, `monthly_additions`, `monthly_churn` | below |
 | `costs` | `unit_cost`, `unit_cost_growth`, `fixed_costs`, `fixed_cost_growth` | below |
@@ -99,6 +101,12 @@ This is what the Assumptions sheet says under "How the model works", and what `m
   less equipment bought, less the loan repaid.
 
 ## An example
+
+This illustrative bike-repair/parts scenario treats all activity as one average sales unit: 2,400 first-year units,
+£45 revenue and £18 variable cost per unit. Separate repair and counter-parts prices, volumes and margins are
+not represented. A request needing them must declare `multiple_products` and be refused; using this aggregate
+requires explicit agreement to the simplification. The illustrative flag and any sources are supplied declarations,
+not independently verified provenance.
 
 ```json
 {

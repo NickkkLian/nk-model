@@ -20,7 +20,7 @@ builder's (`make_model.py`, before it writes), K rules the checker's (`model_che
 
 - **A balancing figure.** No "suspense", "adjustment" or "other" line that absorbs a difference. If it does not
   balance, something is wrong, and the builder does not write it.
-- **A forecast presented as fact.** The model shows how the assumptions fit together. Made-up numbers are marked as
-  made up; real ones say where they come from.
+- **A forecast presented as fact.** The model shows how the assumptions fit together. The user or agent supplies the made-up/real
+  designation and sources sentence; the code checks the declaration, not the authenticity of inputs or sources.
 - **Hidden inputs.** Every input is on the Assumptions sheet, coloured, with its unit. A number that changes the
   model and lives anywhere else is a plug.

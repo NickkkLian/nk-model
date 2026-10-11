@@ -2,23 +2,38 @@
 
 Version **0.2.0**.
 
-An agent skill for annual three-statement Excel models of **one sales line**, or subscriptions with **uniform monthly
-churn and constant month-end additions**. Supports straight-line equipment depreciation over a whole-year useful
-life with zero residual, or reducing balance. Opens on Summary: revenue, profit, cash, minimum funding, warnings and
-two charts; Assumptions is second.
+For owners and analysts using a coding agent to make an annual Excel income statement, balance sheet and cash
+flow for **one sales line**, or subscriptions with **uniform monthly churn and constant month-end additions**. Supports straight-line equipment depreciation over a whole-year useful
+life with zero residual, or reducing balance. The package selects Summary first: revenue, profit, cash, minimum funding at tested dates,
+warnings and two charts; Assumptions is second. Opening in Excel itself was not checked.
 
-It will **refuse** cohort-specific churn, seasonality, monthly cash forecasts, product mix, prepaid/deferred revenue,
-custom depreciation, opening working capital and nonstandard financing. Working capital uses annual days / 365.
-Cash checks cover opening and **year-end** only: minimum funding can miss any size of intra-year shortfall. The fit
-assessment comes before assumption translation. This is not financial advice.
+The agent must classify **every material requirement** and refuse cohort-specific churn, seasonality, monthly
+cash forecasts, product mix, prepaid/deferred revenue, custom depreciation, opening working capital and
+nonstandard financing. The code validates the **declared features and a limited set of wording patterns**;
+an unsupported need expressed in other words can pass if it is omitted from the declaration. In the outsider's
+probes, a monthly-cash request declared only as annual sales passed preflight, build and checker, producing an
+annual workbook; a sentence denying seasonality was refused because the wording check did not understand
+negation. Preserve the original prose, disclose the classification and resolve mismatches rather than deleting
+words to obtain a pass.
+
+Working capital uses annual revenue for receivables and annual cost of sales for inventory/payables, each
+multiplied by its days / 365. Cash checks cover opening and **year-end** only: reported funding covers those
+tested dates and can miss any size of intra-year shortfall. The agent procedure requires fit assessment before
+assumption translation; the CLI does not enforce that history. This is not financial advice.
 
 ## Build a model
 
 Read `SKILL.md` and `references/business-format.md`. Classify original requirements into `request.json` before
 translating assumptions. Preflight validates declared capabilities and a few prose patterns; the agent must assess
-everything else honestly. Unknown or unsupported requirements are refused, not silently approximated.
+everything else honestly. The code refuses unknown or unsupported feature names; the agent must identify and
+refuse unsupported requirements that the limited prose checks miss.
 
-For the bundled illustrative bike-repair example, run from the skill folder:
+The bundled illustrative bike-repair/parts example aggregates repairs and counter parts into **one average
+sales unit**: 2,400 units in year one, £45 revenue and £18 variable cost per unit. It does not model separate
+repair and counter-parts quantities, prices or margins. A request needing those separate lines must be classified
+as `multiple_products` and refused; accepting this aggregate requires explicit agreement to that simplification.
+
+For this bundled example, run from the skill folder:
 
 ```bash
 cp assets/requests/bike-repair.json request.json
@@ -33,10 +48,16 @@ Replace all example inputs. Old inputs need explicit migration to scope, sales t
 network, installs or spreadsheet application is required to build/check files. Python 3.9+ standard library only.
 
 Every calculated statement, monthly-schedule and Summary number is a formula with its value stored. The builder
-checks formulas against a second plain-Python calculation and refuses an accounting/method discrepancy of half a
-penny. The balance sheet balances at opening and every year, cash ties to cash flow, and profit reaches equity.
-Changing numeric assumptions updates dependent statements when recalculated. Invented inputs are marked
-illustrative; real inputs need a sources sentence.
+compares selected statement values against a second plain-Python calculation inside the same builder, refusing
+differences of half a penny or more; it does not independently verify every monthly or Summary cell. The balance
+sheet balances at opening and every year, cash ties to cash flow, and profit reaches equity. Formulas are intended
+to update dependent statements after numeric edits and recalculation; native Excel recalculation was not checked.
+Statement totals display whole currency units; prices and unit costs display two decimals and Checks show pennies.
+Computations generally retain precision, but near-zero opening cash and accounting-check differences with absolute
+value below 0.005 are normalized to zero.
+
+The user or agent supplies `illustrative` and, for real inputs, a `sources` sentence. The workbook repeats that
+supplied provenance; the code validates its presence and consistency, not whether the numbers or sources are authentic.
 
 Subscriptions bill opening-month customers, apply uniform churn, then add customers at month end. New customers
 pay next month; fractional customers are expectations. Straight line starts opening new assets in year one and
@@ -44,9 +65,15 @@ year-end purchases the following year; depreciation stops after useful life. One
 principal and interest on opening balance. Tax is on positive annual profit, with no loss carryforward. These
 conventions appear in the workbook.
 
-Summary method descriptions follow the live inputs: equipment and loan descriptions appear only when funded
-amounts exist, and start-of-year equipment is distinguished from recurring year-end purchases. The sales line is
-generated from the selected model. Original description, defaults and scope notes remain on Assumptions.
+Summary has the business name in row 1 and the modeled sales description in row 2. Its method descriptions
+are formulas based on live inputs: equipment and loan descriptions appear only when funded amounts exist,
+and start-of-year equipment is distinguished from recurring year-end purchases. Their native Excel updates
+were not checked. The sales description is generated from the selected model. Original description, defaults
+and scope notes remain on Assumptions.
+
+Funding and its warning use the lowest opening/year-end cash: below −0.005 currency units, funding is the
+absolute shortfall; otherwise it is zero. A shortfall of exactly half a penny, or less, produces zero funding
+and no funding warning. This threshold does not measure within-year funding needs.
 
 ## Check before sharing
 
@@ -71,7 +98,7 @@ churn and consulting equipment's write-off did not match the requests, and profi
 The build adds preflight scope checks, explicit uniform monthly subscription and whole-year straight-line
 methods, and a first-sheet Summary with funding warnings.
 
-The second agent tried a subscription business, a laundry and seasonal kayak rentals. Its report found correct
+The second agent tried a subscription business, a laundry and seasonal kayak rentals. The agent reported correct
 finances in the first two and an honest refusal for the seasonal/monthly-cash request, but Summary words
 described nonexistent equipment/loans or the wrong purchase timing. The builder then made those descriptions
 follow live inputs and added checks. Detailed inputs, workbooks and logs for that second trial were not supplied
