@@ -1,15 +1,32 @@
 # nk-model
 
-Version **0.2.0**.
+Version **0.2.1**.
 
-For owners and analysts using a coding agent to make an annual Excel income statement, balance sheet and cash
-flow for **one sales line**, or subscriptions with **uniform monthly churn and constant month-end additions**. Supports straight-line equipment depreciation over a whole-year useful
-life with zero residual, or reducing balance. The package selects Summary first: revenue, profit, cash, minimum funding at tested dates,
-warnings and two charts; Assumptions is second. Opening in Excel itself was not checked.
+Ask your coding agent: “Build a three-year model for a bike-repair shop, with 2,400 average sales units in year one,
+£45 revenue and £18 variable cost per unit.” It shows what the model can and cannot cover, records every number
+you did not give as a stated assumption, then makes an `.xlsx` with linked income statement, balance sheet and
+cash flow. Summary opens first with funding status, revenue, profit
+and cash; the bundled illustrative example is shown below.
 
-![nk-model: the preview of a workbook's Summary sheet: funding status first, then revenue, net profit and cash by year](https://raw.githubusercontent.com/NickkkLian/nickkk-skills/main/gallery/results/nk-model.png)
+The checker catches a wrong stored cell: changing `Income statement!B4` from 2400 to 2500 leaves its formula intact
+but makes `model_check.py` exit 1 with four K03 findings. Its first finding is:
 
-Shown in the skill's own HTML preview page.
+```text
+K03 Income statement!B4 stores 2500.0 but its formula =IF(Assumptions!$B$44=1,SUM('Monthly sales'!F4:F15),Assumptions!$B$6) gives 2400.0
+```
+
+![Summary preview of Harbour Bike Repairs: no funding shortfall at tested cash points, with annual revenue, net profit and year-end cash](assets/summary.png)
+
+Captured from the bundled example's generated HTML preview (`scripts/preview.py`); these are stored workbook values.
+
+Nick opened the 0.2.0 build in Excel on **2026-10-13** and reported “excel ok”.
+
+## Scope and fit
+
+For owners and analysts using a coding agent to make an annual model for **one sales line**, or subscriptions with
+**uniform monthly churn and constant month-end additions**. Supports straight-line equipment depreciation over a
+whole-year useful life with zero residual, or reducing balance. Summary includes minimum funding at tested dates,
+warnings and two charts; Assumptions is second.
 
 The agent must classify **every material requirement** and refuse cohort-specific churn, seasonality, monthly
 cash forecasts, product mix, prepaid/deferred revenue, custom depreciation, opening working capital and
@@ -92,9 +109,11 @@ python3 scripts/preview.py --selftest
 python3 scripts/xlformula.py --selftest
 ```
 
-All six existing suites pass in 0.2.0. The HTML preview is offline and shows stored values; click a number for its
+All six existing suites pass in 0.2.1. The HTML preview is offline and shows stored values; click a number for its
 cell and formula. It does not recalculate. The checker uses the shipped evaluator and rebuilds a reference from
-builder code, so a separate business-method calculation is necessary.
+builder code, so the user or agent still needs a separate calculation to verify that the method fits the original
+business description. The builder's second calculation checks selected statement values; it does not provide
+that independent assessment of the business method.
 
 ## How this version was tried
 
@@ -109,8 +128,8 @@ finances in the first two and an honest refusal for the seasonal/monthly-cash re
 described nonexistent equipment/loans or the wrong purchase timing. The builder then made those descriptions
 follow live inputs and added checks. Detailed inputs, workbooks and logs for that second trial were not supplied
 with this integration; its findings are recorded reports, not newly reproduced calculations. Fresh local checks
-below run the bundled example and all six self-tests. Opening, saving, recalculating, refreshing charts and
-checking visual fit in Excel itself were not checked.
+below run the bundled example and all six self-tests. Nick's Excel report above does not establish tests of saving,
+native recalculation after input edits, chart refresh or full visual fit.
 
 <details><summary>Complete command output recorded on 2026-10-11</summary>
 
@@ -321,8 +340,8 @@ xlformula selftest: 14/14 passed
 
 ## What was not checked
 
-- Opening or saving this build in Microsoft Excel, repair-free opening, native Excel recalculation, and chart refresh
-  after native input edits. See `references/acceptance.md` for those checks.
+- Saving in Microsoft Excel, repair-free opening as a specific acceptance check, native Excel recalculation,
+  and chart refresh after native input edits. See `references/acceptance.md` for those checks.
 - Other spreadsheet engines and arbitrary prose comprehension.
 - Formatting changes, hidden rows/columns, text boxes, extra charts, chart titles/year caches, data connections and
   precision-as-displayed are not fully inspected by the checker.
@@ -331,6 +350,6 @@ xlformula selftest: 14/14 passed
   Round 2 report does not include the audit/logs it mentions. Full visual fit and clipping in Excel remain unchecked;
   the offline raster renderer's width/height heuristic is not a complete visual audit.
 
-No GUI automation was used. Recalculation evidence comes from Python, not Excel itself. Large compounded sums can
+The recorded command checks used no GUI automation. Recalculation evidence comes from Python, not Excel itself. Large compounded sums can
 exceed floating-point penny precision. Fonts fall back where not installed. This shows how stated assumptions fit
 together, not whether they are realistic.

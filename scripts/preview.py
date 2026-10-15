@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ooxml as O
 import numsrc  # the clickable number sources layer shared with the other nk-* page skills
 
-VERSION = "0.2.0"   # written into the sources manifest as the generator
+VERSION = "0.2.1"   # written into the sources manifest as the generator
 FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "fonts")
 FONTS = [("Fraunces", "fraunces-latin-wght.woff2", "100 900"), ("Inter", "inter-latin-wght.woff2", "100 900"),
          ("Space Mono", "space-mono-latin-400.woff2", "400")]

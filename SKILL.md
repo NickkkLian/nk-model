@@ -1,10 +1,10 @@
 ---
 name: nk-model
-description: "Use when a business needs annual three-statement Excel models for one sales line, or subscriptions with uniform monthly churn and constant monthly additions. Assess and classify every requirement before translating assumptions; agents must refuse unsupported needs, while code checks declared features and limited wording patterns. Package selects Summary with profit, cash, funding warnings and charts; opening in Excel itself is untested. Standard-library Python, live formulas, stored values and an offline preview."
+description: "Use when a business needs annual three-statement Excel models for one sales line, or subscriptions with uniform monthly churn and constant monthly additions. Assess and classify every requirement before translating assumptions; agents must refuse unsupported needs, while code checks declared features and limited wording patterns. Package selects Summary with profit, cash, funding warnings and charts. Standard-library Python, live formulas, stored values and an offline preview."
 license: MIT
 metadata:
   compatibility: "Python 3.9+ standard library only; no installs, network, macros or external links needed."
-  version: 0.2.0
+  version: 0.2.1
 ---
 # Three-statement model
 
@@ -111,7 +111,8 @@ reader/writer and formula semantics separately from the builder and checker suit
   Descriptions and scope notes are free text with safe-character and scope checks. Look at the file.
 - The included formula evaluator is not Excel. Near-zero cancellation, text arithmetic/logical functions and logical
   results inside SUM/MIN/MAX can differ, as described in `${CLAUDE_SKILL_DIR}/scripts/xlformula.py`. Preview and caches do not establish
-  native Excel recalculation. This upgrade has not opened or saved the build in Microsoft Excel.
+  native Excel recalculation. See README.md for the manual opening report; saving, recalculation after input edits
+  and chart refresh remain unchecked.
 - Spreadsheet-program saves can change storage in ways the checker flags. Shared formulas work in the usual
   one-master form; ambiguous multi-master groups are not reliable. Fonts fall back where not installed.
 

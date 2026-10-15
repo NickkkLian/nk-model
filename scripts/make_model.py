@@ -5,7 +5,7 @@
     python3 make_model.py --init business.json          # a filled-in example to edit
     python3 make_model.py --selftest
 
-Version 0.2.0. Seven sheets: Summary (answer and charts), Assumptions, Income statement, Balance sheet,
+Version 0.2.1. Seven sheets: Summary (answer and charts), Assumptions, Income statement, Balance sheet,
 Cash flow, Checks and Monthly sales. Every number on the three statements is a formula that points back at the assumptions
 or at another statement, stored together with the value it gives, so the file reads correctly in Excel (which
 recalculates) and in viewers that do not (which show the stored value).
