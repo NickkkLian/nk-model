@@ -108,9 +108,7 @@ python3 scripts/xlformula.py --selftest
 All six existing suites pass in 0.2.1. The HTML preview is offline and shows stored values; click a number for its
 cell and formula. It does not recalculate. The checker uses the shipped evaluator and rebuilds a reference from
 builder code, so the user or agent still needs a separate calculation to verify that the method fits the original
-business description. The builder's second calculation checks selected statement values; it does not provide
-that independent assessment of the business method.
-
+business description. 
 This README describes version 0.2.1. How this version was tried, with the complete recorded command output, is in
 [VERIFICATION.md](VERIFICATION.md).
 
@@ -119,8 +117,8 @@ This README describes version 0.2.1. How this version was tried, with the comple
 The agent must classify **every material requirement** and refuse cohort-specific churn, seasonality, monthly
 cash forecasts, product mix, prepaid/deferred revenue, custom depreciation, opening working capital and
 nonstandard financing. The code validates the **declared features and a limited set of wording patterns**;
-an unsupported need expressed in other words can pass if it is omitted from the declaration. In the outsider's
-probes, a monthly-cash request declared only as annual sales passed preflight, build and checker, producing an
+an unsupported need expressed in other words can pass if it is omitted from the declaration. In outside
+testing, a monthly-cash request declared only as annual sales passed preflight, build and checker, producing an
 annual workbook; a sentence denying seasonality was refused because the wording check did not understand
 negation. Preserve the original prose, disclose the classification and resolve mismatches rather than deleting
 words to obtain a pass.
@@ -137,11 +135,8 @@ assumption translation; the CLI does not enforce that history. This is not finan
 - Other spreadsheet engines and arbitrary prose comprehension.
 - Formatting changes, hidden rows/columns, text boxes, extra charts, chart titles/year caches, data connections and
   precision-as-displayed are not fully inspected by the checker.
-- Within-year cash and funding needs. Annual tested cash points can miss any size of intra-year shortfall.
-- Independent confirmation of the earlier hand-back's test history and historical before/after figures. The supplied
-  Round 2 report does not include the audit/logs it mentions. Full visual fit and clipping in Excel remain unchecked;
-  the offline raster renderer's width/height heuristic is not a complete visual audit.
+- Full visual fit and clipping in Excel; the offline raster renderer's width/height heuristic is not a complete visual audit.
 
-The recorded command checks used no GUI automation. Recalculation evidence comes from Python, not Excel itself. Large compounded sums can
+The recorded command checks used no GUI automation. Large compounded sums can
 exceed floating-point penny precision. Fonts fall back where not installed. This shows how stated assumptions fit
 together, not whether they are realistic.

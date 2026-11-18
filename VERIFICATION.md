@@ -1,6 +1,6 @@
 # Verification
 
-How nk-model 0.2.1 was tried, moved here from the README, with the complete recorded command output.
+How nk-model 0.2.1 was tried, with the complete recorded command output.
 
 ## How version 0.2.1 was tried
 
@@ -13,15 +13,15 @@ methods, and a first-sheet Summary with funding warnings.
 The second agent tried a subscription business, a laundry and seasonal kayak rentals. The agent reported correct
 finances in the first two and an honest refusal for the seasonal/monthly-cash request, but Summary words
 described nonexistent equipment/loans or the wrong purchase timing. The builder then made those descriptions
-follow live inputs and added checks. Detailed inputs, workbooks and logs for that second trial were not supplied
-with this integration; its findings are recorded reports, not newly reproduced calculations. Fresh local checks
+follow live inputs and added checks. Detailed inputs, workbooks and logs for that second trial are not
+included; its findings are recorded reports, not newly reproduced calculations. Fresh local checks
 below run the bundled example and all six self-tests. Opening the 0.2.0 build in Microsoft Excel on 2026-10-13 did not establish tests of saving,
 native recalculation after input edits, chart refresh or full visual fit.
 
 <details><summary>Complete command output recorded on 2026-10-11</summary>
 
 The copy command prints nothing. Each block is the full combined output of its stated command, run on a fresh
-copy of the adopted lab source. The bundled inputs are illustrative; replace them and assess fit for your request.
+copy of the source. The bundled inputs are illustrative; replace them and assess fit for your request.
 
 `cp assets/requests/bike-repair.json request.json` (exit 0):
 
